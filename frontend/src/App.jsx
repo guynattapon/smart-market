@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import Swal from 'sweetalert2' // ✅ อย่าลืม import Swal
 import './App.css'
 import Login from './Login'
 import Dashboard from './Dashboard';
@@ -9,8 +10,6 @@ function App() {
   const [user, setUser] = useState(null)
   const [stalls, setStalls] = useState([])
   const [myBills, setMyBills] = useState([])
-  
-  // 👇 ต้องมีบรรทัดนี้นะครับ! (ตัวแปรสลับหน้า)
   const [currentPage, setCurrentPage] = useState('home');
 
   useEffect(() => {
@@ -41,57 +40,115 @@ function App() {
     setCurrentPage('home');
   }
 
+  // 👇 แก้ไขฟังก์ชัน Logout ให้มี Popup ถามก่อน
   const handleLogout = () => {
-    setUser(null)
-    localStorage.removeItem('user_data')
-    setStalls([])
-    setMyBills([])
-    setCurrentPage('home');
+    Swal.fire({
+      title: 'ยืนยันการออกจากระบบ?',
+      text: "คุณต้องการออกจากระบบใช่หรือไม่",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'ใช่, ออกจากระบบ',
+      cancelButtonText: 'ยกเลิก'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // ถ้ากด "ใช่" ถึงจะล้างข้อมูล
+        setUser(null)
+        localStorage.removeItem('user_data')
+        setStalls([])
+        setMyBills([])
+        setCurrentPage('home');
+        
+        Swal.fire({
+          title: 'ออกจากระบบแล้ว',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        })
+      }
+    })
   }
 
   const handlePayBill = (bill) => {
-    const confirm = window.confirm(`ยืนยันการจ่ายเงินยอด ${bill.total_amount} บาท?`)
-    if (confirm) {
-      axios.post('https://smart-market-h5xu.onrender.com/pay-bill', { bill_id: bill.id })
-        .then((res) => {
-          alert(res.data.message)
-          fetchData(user)
-        })
-        .catch((err) => alert('เกิดข้อผิดพลาด'))
-    }
+    Swal.fire({
+      title: `ยืนยันจ่ายเงิน ${bill.total_amount} บาท?`,
+      text: "ระบบจะทำการบันทึกยอดทันที",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'จ่ายเลย',
+      cancelButtonText: 'เดี๋ยวก่อน'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.post('https://smart-market-h5xu.onrender.com/pay-bill', { bill_id: bill.id })
+          .then((res) => {
+            Swal.fire('สำเร็จ!', res.data.message, 'success')
+            fetchData(user)
+          })
+          .catch((err) => Swal.fire('เกิดข้อผิดพลาด', '', 'error'))
+      }
+    })
   }
 
   const handleStallClick = (stall) => {
     if (stall.status === 'VACANT') {
-      if (window.confirm(`ยืนยันจองแผง ${stall.code} ในนามคุณ ${user.full_name}?`)) {
-        axios.post('https://smart-market-h5xu.onrender.com/book', { stall_id: stall.id, user_id: user.id })
-          .then(() => { alert('🎉 จองสำเร็จ!'); fetchData(user); })
-          .catch(err => alert('Error: ' + err.message))
-      }
+      Swal.fire({
+        title: `จองแผง ${stall.code}?`,
+        text: `ราคา ${stall.monthly_price} บาท/เดือน`,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'จองเลย!',
+        confirmButtonColor: '#10b981'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          axios.post('https://smart-market-h5xu.onrender.com/book', { stall_id: stall.id, user_id: user.id })
+            .then(() => { 
+                Swal.fire('จองสำเร็จ!', 'ยินดีด้วย คุณได้แผงค้าใหม่แล้ว', 'success'); 
+                fetchData(user); 
+            })
+            .catch(err => Swal.fire('Error', err.message, 'error'))
+        }
+      })
       return; 
     }
 
     if (stall.status === 'OCCUPIED' && user.role === 'ADMIN') {
-      const water = prompt(`📋 ออกบิลแผง ${stall.code}\nกรอก "เลขมิเตอร์น้ำ":`);
-      if (!water) return;
-      const electric = prompt(`กรอก "เลขมิเตอร์ไฟ":`);
-      if (!electric) return;
+      // ใช้ SweetAlert แบบใส่ข้อมูล (Input) ได้
+      Swal.fire({
+        title: `📋 ออกบิลแผง ${stall.code}`,
+        html:
+          '<input id="swal-input1" class="swal2-input" placeholder="เลขมิเตอร์น้ำ">' +
+          '<input id="swal-input2" class="swal2-input" placeholder="เลขมิเตอร์ไฟ">',
+        focusConfirm: false,
+        preConfirm: () => {
+          return [
+            document.getElementById('swal-input1').value,
+            document.getElementById('swal-input2').value
+          ]
+        }
+      }).then((result) => {
+        if (result.value) {
+            const [water, electric] = result.value;
+            if(!water || !electric) return;
 
-      axios.post('https://smart-market-h5xu.onrender.com/create-bill', {
-        stall_id: stall.id,
-        water_current: water,
-        electric_current: electric
+            axios.post('https://smart-market-h5xu.onrender.com/create-bill', {
+                stall_id: stall.id,
+                water_current: water,
+                electric_current: electric
+            })
+            .then((res) => Swal.fire('เรียบร้อย', res.data.message, 'success'))
+            .catch((err) => Swal.fire('Error', err.response?.data?.message || err.message, 'error'));
+        }
       })
-      .then((res) => alert('✅ ' + res.data.message))
-      .catch((err) => alert('❌ ' + (err.response?.data?.message || err.message)));
     } else {
-      alert(`แผง ${stall.code} ไม่ว่างครับ`)
+      if (stall.status === 'OCCUPIED') {
+          Swal.fire('แผงนี้มีเจ้าของแล้ว', '', 'info')
+      }
     }
   }
 
   if (!user) return <Login onLoginSuccess={handleLoginSuccess} />
 
-  // 👇 ถ้ากดปุ่มแล้ว ให้โชว์หน้า Profile
   if (currentPage === 'profile') {
     return <Profile user={user} onBack={() => setCurrentPage('home')} />;
   }
@@ -99,34 +156,35 @@ function App() {
   return (
     <div className="container"> 
       
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>👤 ผู้ใช้งาน: {user.full_name} ({user.role})</h2>
+        <h2 style={{ fontSize: '1.2rem' }}>
+            <span style={{ fontSize: '1.5rem', marginRight: '5px' }}>🏪</span> 
+            {user.full_name} ({user.role})
+        </h2>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-            {/* 👇 ปุ่มพระเอกของเรา ต้องอยู่นี่ครับ */}
             <button 
                 onClick={() => setCurrentPage('profile')}
-                style={{ padding: '8px 15px', borderRadius: '20px', border: '1px solid #ccc', background: 'white', cursor: 'pointer', color: '#333' }}
+                style={{ padding: '8px 15px', borderRadius: '20px', border: '1px solid #ccc', background: 'white', cursor: 'pointer', color: '#333', fontWeight: 'bold' }}
             >
-                ข้อมูลส่วนตัว
+                👤 โปรไฟล์
             </button>
 
-            <button onClick={handleLogout} className="btn-logout" style={{ color: 'white' }}>
+            <button onClick={handleLogout} className="btn-logout" style={{ color: 'white', fontWeight: 'bold' }}>
                 ออกจากระบบ
             </button>
         </div>
       </div>
 
-      {user.role === 'ADMIN' && (
-         <Dashboard />
-      )}
+      {user.role === 'ADMIN' && <Dashboard />}
 
-      <h1>🗺️ แผนที่ตลาด (Smart Market)</h1>
+      <h1 style={{ textAlign: 'center', margin: '30px 0 20px', color: '#1a1a1a' }}>🗺️ ผังตลาด Smart Market</h1>
       
-      <div className="map-container" style={{ position: 'relative', width: '600px', height: '400px', margin: '0 auto 30px', borderRadius: '10px' }}>
+      <div className="map-container" style={{ position: 'relative', width: '600px', height: '400px', margin: '0 auto 30px', borderRadius: '15px', background: '#e5e7eb', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.1)' }}>
         {stalls.map((stall) => {
           const coords = stall.map_coordinates || { x: 0, y: 0 }
-          let bgColor = stall.status === 'VACANT' ? 'var(--success-color)' : 'var(--danger-color)'
+          let bgColor = stall.status === 'VACANT' ? '#10b981' : '#ef4444' // เขียว / แดง
           
           return (
             <div key={stall.id}
@@ -135,8 +193,13 @@ function App() {
                 position: 'absolute', left: `${coords.x}px`, top: `${coords.y}px`,
                 width: '80px', height: '60px', backgroundColor: bgColor,
                 color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '2px 2px 5px rgba(0,0,0,0.3)'
+                borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', 
+                boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
+                transition: 'transform 0.2s',
+                border: '2px solid white'
               }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
               onClick={() => handleStallClick(stall)}
             >
               {stall.code}
@@ -146,45 +209,42 @@ function App() {
       </div>
 
       {user.role === 'TENANT' && (
-        <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '20px' }}>
-          <h2>💸 บิลค่าเช่าของฉัน</h2>
+        <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '30px' }}>
+          <h2>💸 บิลค่าเช่าของคุณ</h2>
           {myBills.length === 0 ? (
-            <p style={{ color: '#6b7280' }}>ยังไม่มีบิลค้างชำระ (สบายตัว!)</p>
+            <div style={{ padding: '20px', textAlign: 'center', background: '#f0fdf4', borderRadius: '10px', color: '#166534' }}>
+                🎉 เย้! คุณไม่มีหนี้ค้างชำระ
+            </div>
           ) : (
-            <table>
-              <thead>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', background: 'white', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+              <thead style={{ background: '#f3f4f6' }}>
                 <tr>
-                  <th>แผง</th>
-                  <th>รอบบิล</th>
-                  <th>ค่าน้ำ</th>
-                  <th>ค่าไฟ</th>
-                  <th>รวมทั้งสิ้น</th>
+                  <th style={{ padding: '12px' }}>แผง</th>
+                  <th>วันที่</th>
+                  <th>ยอดรวม</th>
                   <th>สถานะ</th>
-                  <th>จัดการ</th>
+                  <th>ทำรายการ</th>
                 </tr>
               </thead>
               <tbody>
                 {myBills.map(bill => (
-                  <tr key={bill.id}>
-                    <td>{bill.stall_code}</td>
-                    <td>{new Date(bill.created_at).toLocaleDateString('th-TH')}</td>
-                    <td>{bill.water_total} บ.</td>
-                    <td>{bill.electric_total} บ.</td>
-                    <td style={{ fontWeight: 'bold', color: 'var(--danger-color)' }}>{bill.total_amount} บ.</td>
-                    <td>
+                  <tr key={bill.id} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>{bill.stall_code}</td>
+                    <td style={{ textAlign: 'center' }}>{new Date(bill.created_at).toLocaleDateString('th-TH')}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#ef4444' }}>฿{bill.total_amount}</td>
+                    <td style={{ textAlign: 'center' }}>
                       <span style={{ 
-                        padding: '5px 12px', borderRadius: '20px', color: 'white', fontSize: '0.85rem', fontWeight: '500',
-                        background: bill.status === 'PAID' ? 'var(--success-color)' : '#f59e0b' 
+                        padding: '4px 10px', borderRadius: '20px', color: 'white', fontSize: '0.8rem',
+                        background: bill.status === 'PAID' ? '#10b981' : '#f59e0b' 
                       }}>
                         {bill.status === 'PAID' ? 'จ่ายแล้ว' : 'รอชำระ'}
                       </span>
                     </td>
-                    <td>
+                    <td style={{ textAlign: 'center' }}>
                       {bill.status === 'PENDING' && (
                         <button 
                           onClick={() => handlePayBill(bill)}
-                          className="btn-pay"
-                          style={{ color: 'white' }}
+                          style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}
                         >
                           แจ้งโอน
                         </button>
@@ -197,6 +257,13 @@ function App() {
           )}
         </div>
       )}
+
+      {/* 👇 Footer ด้านล่างสุด */}
+      <footer style={{ marginTop: '60px', textAlign: 'center', color: '#9ca3af', fontSize: '14px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+        <p>© 2024 Smart Market System by <strong>[ชื่อเพื่อนใส่ตรงนี้]</strong></p>
+        <p>Full Stack Project (React + Node.js + PostgreSQL)</p>
+      </footer>
+
     </div>
   )
 }
