@@ -1,199 +1,134 @@
-import { useState, useEffect } from 'react'
-import axios from 'axios'
-import Swal from 'sweetalert2' 
-import './App.css'
-import Login from './Login'
-import Dashboard from './Dashboard';
-import Profile from './Profile'; // ✅ 1. ต้องมีบรรทัดนี้
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import Swal from 'sweetalert2';
+// ... (imports อื่นๆ คงเดิม)
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [stalls, setStalls] = useState([])
-  const [myBills, setMyBills] = useState([])
-  
-  // ✅ 2. ตัวแปรสลับหน้า
-  const [currentPage, setCurrentPage] = useState('home');
+  const [stalls, setStalls] = useState([]);
+  const [user, setUser] = useState(null); // สมมติว่า Login แล้ว
+  const [selectedZone, setSelectedZone] = useState('ทั้งหมด'); // ตัวแปรเก็บโซนที่เลือก
 
+  // ดึงข้อมูลแผง
   useEffect(() => {
-    const savedUser = localStorage.getItem('user_data')
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser)
-      setUser(parsedUser)
-      fetchData(parsedUser)
-    }
-  }, [])
+    fetchStalls();
+  }, []);
 
-  const fetchData = (userData) => {
+  const fetchStalls = () => {
     axios.get('https://smart-market-h5xu.onrender.com/stalls')
-      .then((res) => setStalls(res.data))
-      .catch((err) => console.error(err))
+      .then(res => setStalls(res.data))
+      .catch(err => console.error(err));
+  };
 
-    if (userData && userData.role === 'TENANT') {
-      axios.get(`https://smart-market-h5xu.onrender.com/my-bills/${userData.id}`)
-        .then((res) => setMyBills(res.data))
-        .catch((err) => console.error(err))
-    }
-  }
+  // ฟังก์ชันกรองแผงตามโซน
+  const filteredStalls = selectedZone === 'ทั้งหมด' 
+    ? stalls 
+    : stalls.filter(s => s.zone_name === selectedZone);
 
-  const handleLoginSuccess = (userData, token) => {
-    setUser(userData)
-    localStorage.setItem('user_data', JSON.stringify(userData))
-    fetchData(userData)
-    setCurrentPage('home');
-  }
+  // รายชื่อโซนทั้งหมด (ดึงจากข้อมูลที่มี)
+  const zones = ['ทั้งหมด', ...new Set(stalls.map(s => s.zone_name))];
 
-  const handleLogout = () => {
+  // ฟังก์ชันจองแผง (แบบละเอียด)
+  const handleBooking = (stall) => {
+    if (!user) return Swal.fire('แจ้งเตือน', 'กรุณาเข้าสู่ระบบก่อนจอง', 'warning');
+
     Swal.fire({
-      title: 'ยืนยันการออกจากระบบ?',
-      icon: 'warning',
+      title: `จองแผง ${stall.zone_name} (A0${stall.id})`,
+      html: `
+        <div style="text-align: left; font-size: 14px;">
+          <p><b>ราคา:</b> รายวัน ${stall.price_daily}฿ / รายเดือน ${stall.price_monthly}฿</p>
+          <hr/>
+          <label>ชื่อร้านค้า:</label>
+          <input id="shop_name" class="swal2-input" placeholder="เช่น ร้านเจ๊แดง รสเด็ด">
+          
+          <label>ขายสินค้าประเภท:</label>
+          <input id="product_type" class="swal2-input" placeholder="เช่น ข้าวแกง, เสื้อยืด">
+          
+          <label>เลขบัตรประชาชน (13 หลัก):</label>
+          <input id="id_card" class="swal2-input" placeholder="กรอกเลขบัตรเพื่อยืนยันตัวตน">
+          
+          <label>รูปแบบการเช่า:</label>
+          <select id="booking_type" class="swal2-input">
+            <option value="DAILY">รายวัน (${stall.price_daily} บาท)</option>
+            <option value="MONTHLY">รายเดือน (${stall.price_monthly} บาท)</option>
+          </select>
+        </div>
+      `,
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'ออกเลย',
-      cancelButtonText: 'ยกเลิก'
+      confirmButtonText: 'ยืนยันการจอง',
+      confirmButtonColor: '#10b981',
+      preConfirm: () => {
+        return {
+          shop_name: document.getElementById('shop_name').value,
+          product_type: document.getElementById('product_type').value,
+          id_card: document.getElementById('id_card').value,
+          booking_type: document.getElementById('booking_type').value
+        };
+      }
     }).then((result) => {
       if (result.isConfirmed) {
-        setUser(null)
-        localStorage.removeItem('user_data')
-        setStalls([])
-        setMyBills([])
-        setCurrentPage('home');
+        const data = result.value;
+        if(!data.shop_name || !data.id_card) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อร้านและเลขบัตร', 'error');
+
+        // ส่งข้อมูลไป Backend
+        axios.post('https://smart-market-h5xu.onrender.com/book', {
+          stall_id: stall.id,
+          user_id: user.id,
+          ...data // ส่งข้อมูลร้านค้า/บัตรปชช ไปด้วย
+        }).then(() => {
+          Swal.fire('สำเร็จ!', 'จองแผงเรียบร้อยแล้ว', 'success');
+          fetchStalls(); // โหลดข้อมูลใหม่
+        });
       }
-    })
-  }
-
-  const handlePayBill = (bill) => {
-    Swal.fire({
-      title: `ยืนยันจ่ายเงิน ${bill.total_amount} บาท?`,
-      showCancelButton: true,
-      confirmButtonText: 'แจ้งโอน'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        axios.post('https://smart-market-h5xu.onrender.com/pay-bill', { bill_id: bill.id })
-          .then((res) => {
-            Swal.fire('สำเร็จ!', res.data.message, 'success')
-            fetchData(user)
-          })
-          .catch((err) => Swal.fire('Error', 'เกิดข้อผิดพลาด', 'error'))
-      }
-    })
-  }
-
-  const handleStallClick = (stall) => {
-    if (stall.status === 'VACANT') {
-      Swal.fire({
-        title: `จองแผง ${stall.code}?`,
-        text: `ราคา ${stall.monthly_price} บาท/เดือน`,
-        showCancelButton: true,
-        confirmButtonText: 'จองเลย'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          axios.post('https://smart-market-h5xu.onrender.com/book', { stall_id: stall.id, user_id: user.id })
-            .then(() => { 
-                Swal.fire('จองสำเร็จ!', '', 'success'); 
-                fetchData(user); 
-            })
-            .catch(err => Swal.fire('Error', err.message, 'error'))
-        }
-      })
-      return; 
-    }
-
-    if (stall.status === 'OCCUPIED' && user.role === 'ADMIN') {
-      Swal.fire({
-        title: `ออกบิลแผง ${stall.code}`,
-        html: '<input id="swal-input1" class="swal2-input" placeholder="มิเตอร์น้ำ">' +
-              '<input id="swal-input2" class="swal2-input" placeholder="มิเตอร์ไฟ">',
-        focusConfirm: false,
-        preConfirm: () => [document.getElementById('swal-input1').value, document.getElementById('swal-input2').value]
-      }).then((result) => {
-        if (result.value) {
-            const [water, electric] = result.value;
-            if(!water || !electric) return;
-            axios.post('https://smart-market-h5xu.onrender.com/create-bill', { stall_id: stall.id, water_current: water, electric_current: electric })
-            .then((res) => Swal.fire('เรียบร้อย', res.data.message, 'success'))
-            .catch((err) => Swal.fire('Error', err.message, 'error'));
-        }
-      })
-    } else {
-      if (stall.status === 'OCCUPIED') Swal.fire('แผงนี้มีเจ้าของแล้ว', '', 'info')
-    }
-  }
-
-  if (!user) return <Login onLoginSuccess={handleLoginSuccess} />
-
-  // ✅ 3. ถ้ากดปุ่ม Profile ให้โชว์หน้านั้น
-  if (currentPage === 'profile') {
-    return <Profile user={user} onBack={() => setCurrentPage('home')} />;
-  }
+    });
+  };
 
   return (
-    <div className="container"> 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '1.2rem' }}>🏪 {user.full_name} ({user.role})</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => setCurrentPage('profile')} style={{ background: 'white', border: '1px solid #ccc', borderRadius: '20px', padding: '5px 15px', cursor: 'pointer' }}>
-                👤 ข้อมูลส่วนตัว
-            </button>
-            <button onClick={handleLogout} className="btn-logout" style={{ color: 'white', borderRadius: '20px', padding: '5px 15px' }}>
-                ออกจากระบบ
-            </button>
-        </div>
-      </div>
-
-      {user.role === 'ADMIN' && <Dashboard />}
-
-      <h1 style={{ textAlign: 'center', margin: '30px 0' }}>🗺️ ผังตลาด Smart Market</h1>
+    <div style={{ padding: '20px' }}>
+      <h1>🗺️ ผังตลาด Smart Market</h1>
       
-      <div className="map-container" style={{ position: 'relative', width: '600px', height: '400px', margin: '0 auto 30px', borderRadius: '15px', background: '#e5e7eb', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.1)' }}>
-        {stalls.map((stall) => {
-          const coords = stall.map_coordinates || { x: 0, y: 0 }
-          let bgColor = stall.status === 'VACANT' ? '#10b981' : '#ef4444'
-          return (
-            <div key={stall.id} className="stall-box"
-              style={{
-                position: 'absolute', left: `${coords.x}px`, top: `${coords.y}px`,
-                width: '80px', height: '60px', backgroundColor: bgColor,
-                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: '2px solid white', boxShadow: '0 4px 6px rgba(0,0,0,0.2)'
-              }}
-              onClick={() => handleStallClick(stall)}
-            >
-              {stall.code}
-            </div>
-          )
-        })}
+      {/* ปุ่มเลือกโซน */}
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', overflowX: 'auto' }}>
+        {zones.map(zone => (
+          <button 
+            key={zone}
+            onClick={() => setSelectedZone(zone)}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '20px',
+              border: 'none',
+              background: selectedZone === zone ? '#2563eb' : '#eee',
+              color: selectedZone === zone ? 'white' : 'black',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {zone}
+          </button>
+        ))}
       </div>
 
-      {user.role === 'TENANT' && (
-        <div style={{ borderTop: '2px solid #eee', paddingTop: '20px' }}>
-          <h2>💸 บิลค่าเช่า</h2>
-          {myBills.length === 0 ? <p>ไม่มียอดค้างชำระ</p> : (
-            <table style={{ width: '100%', background: 'white', borderRadius: '10px' }}>
-              <thead><tr><th>แผง</th><th>ยอดรวม</th><th>สถานะ</th><th>ทำรายการ</th></tr></thead>
-              <tbody>
-                {myBills.map(bill => (
-                  <tr key={bill.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ textAlign: 'center', padding: '10px' }}>{bill.stall_code}</td>
-                    <td style={{ textAlign: 'center', color: 'red', fontWeight: 'bold' }}>฿{bill.total_amount}</td>
-                    <td style={{ textAlign: 'center' }}>{bill.status === 'PAID' ? '✅ จ่ายแล้ว' : 'รอชำระ'}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      {bill.status === 'PENDING' && <button onClick={() => handlePayBill(bill)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px' }}>แจ้งโอน</button>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      {/* Footer */}
-      <footer style={{ marginTop: '50px', textAlign: 'center', color: '#888', fontSize: '12px' }}>
-        <p>© 2024 Smart Market System by <strong>[ชื่อของคุณใส่ตรงนี้]</strong></p>
-      </footer>
+      {/* แสดงแผง */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+        {filteredStalls.map(stall => (
+          <div key={stall.id} 
+               onClick={() => stall.status === 'AVAILABLE' && handleBooking(stall)}
+               style={{
+                 border: '1px solid #ddd', padding: '15px', borderRadius: '10px',
+                 background: stall.status === 'AVAILABLE' ? '#d1fae5' : '#fca5a5',
+                 cursor: stall.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
+                 textAlign: 'center'
+               }}>
+            <h3>{stall.code || `แผง ${stall.id}`}</h3>
+            <span style={{ fontSize: '12px', background: 'white', padding: '2px 8px', borderRadius: '10px', border: '1px solid #ccc' }}>
+              {stall.zone_name}
+            </span>
+            <p>{stall.status === 'AVAILABLE' ? 'ว่าง' : 'ไม่ว่าง'}</p>
+            {stall.status === 'OCCUPIED' && <p style={{fontSize:'12px'}}>ร้าน: {stall.current_shop_name}</p>}
+          </div>
+        ))}
+      </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

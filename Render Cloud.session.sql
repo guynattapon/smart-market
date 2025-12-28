@@ -13,5 +13,23 @@ UPDATE users
 SET password = '1234' 
 WHERE role = 'ADMIN';
 
--- 4. เช็คผลลัพธ์ (ดูซิว่า admin มาหรือยัง)
-SELECT username, password, role FROM users;
+-- 1. เพิ่มข้อมูลส่วนตัวให้ User (เลขบัตรประชาชน)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS id_card_number VARCHAR(20);
+
+-- 2. เพิ่มข้อมูลให้แผงค้า (Stalls)
+-- zone_name: ชื่อโซน (เช่น ของสด, เสื้อผ้า)
+-- price_daily: ราคาเช่ารายวัน
+-- price_monthly: ราคาเช่ารายเดือน
+-- current_shop_name: ชื่อร้านที่มาเช่า (เก็บไว้โชว์)
+-- current_product_type: ประเภทสินค้าที่ขาย
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS zone_name VARCHAR(50) DEFAULT 'ทั่วไป';
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS price_daily DECIMAL(10,2) DEFAULT 100;
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS price_monthly DECIMAL(10,2) DEFAULT 3000;
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS current_shop_name VARCHAR(100);
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS current_product_type VARCHAR(100);
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS booking_type VARCHAR(10); -- 'DAILY' หรือ 'MONTHLY'
+
+-- 3. (แถม) อัปเดตข้อมูลสมมติ ให้มีหลายๆ โซน (จะได้เห็นภาพชัดๆ)
+UPDATE stalls SET zone_name = 'โซนของสด', price_daily = 150, price_monthly = 4000 WHERE id IN (1, 2);
+UPDATE stalls SET zone_name = 'โซนเสื้อผ้า', price_daily = 120, price_monthly = 3500 WHERE id IN (3, 4);
+UPDATE stalls SET zone_name = 'โซนอาหาร', price_daily = 200, price_monthly = 5000 WHERE id IN (5, 6);

@@ -121,11 +121,31 @@ app.get('/my-bills/:userId', async (req, res) => {
 });
 
 app.post('/book', async (req, res) => {
-  const { stall_id, user_id } = req.body;
+  const { stall_id, user_id, shop_name, product_type, booking_type, id_card } = req.body;
+  
   try {
-    await pool.query('UPDATE stalls SET status = $1, tenant_id = $2 WHERE id = $3', ['OCCUPIED', user_id, stall_id]);
-    res.json({ message: 'จองสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    // 1. อัปเดตเลขบัตรประชาชนลงในตาราง User (ถ้ามีการส่งมา)
+    if (id_card) {
+      await pool.query('UPDATE users SET id_card_number = $1 WHERE id = $2', [id_card, user_id]);
+    }
+
+    // 2. อัปเดตข้อมูลแผงค้า (จองแผง + บันทึกข้อมูลร้าน)
+    await pool.query(
+      `UPDATE stalls 
+       SET status = 'OCCUPIED', 
+           tenant_id = $1, 
+           current_shop_name = $2, 
+           current_product_type = $3,
+           booking_type = $4
+       WHERE id = $5`, 
+      [user_id, shop_name, product_type, booking_type, stall_id]
+    );
+
+    res.json({ message: 'จองแผงสำเร็จ! ข้อมูลร้านค้าถูกบันทึกแล้ว' });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ message: err.message }); 
+  }
 });
 
 app.post('/create-bill', async (req, res) => {
