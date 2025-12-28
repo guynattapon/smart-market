@@ -14,29 +14,33 @@ const pool = new Pool({
 });
 
 // 👇 API สมัครสมาชิก (สำคัญมาก! ต้องมีอันนี้ข้อมูลถึงจะลง DB)
+// 👇 API สำหรับสมัครสมาชิก (Register) - วางส่วนนี้เพิ่มเข้าไปครับ
 app.post('/register', async (req, res) => {
   const { username, password, full_name, phone_number } = req.body;
   
+  // 1. เช็คว่ากรอกครบไหม
   if (!username || !password || !full_name) {
     return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
   }
 
   try {
-    // บันทึกลง Database (บังคับให้เป็น role: TENANT)
+    // 2. บันทึกลง Database ทันที! (Fix ให้เป็น Tenant)
     await pool.query(
       "INSERT INTO users (username, password, full_name, role, phone_number) VALUES ($1, $2, $3, 'TENANT', $4)",
       [username, password, full_name, phone_number]
     );
     res.json({ message: 'สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ' });
   } catch (err) {
+    // 3. ดัก Error กรณีชื่อซ้ำ
     if (err.code === '23505') {
-      res.status(400).json({ message: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว' });
+      res.status(400).json({ message: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว เปลี่ยนชื่อใหม่นะ' });
     } else {
-      res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + err.message });
+      console.error(err);
+      res.status(500).json({ message: 'Server Error: ' + err.message });
     }
   }
 });
-
+// 👆 จบส่วน API สมัครสมาชิก
 // 👇 API เข้าสู่ระบบ (Login)
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
