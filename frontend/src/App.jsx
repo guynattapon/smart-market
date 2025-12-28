@@ -1,108 +1,159 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import Login from './Login'; // เรียกใช้หน้า Login
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [stalls, setStalls] = useState([]);
+function Login({ onLoginSuccess }) {
+  const [isRegister, setIsRegister] = useState(false);
+  
+  // ข้อมูลฟอร์ม
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
 
-  // ฟังก์ชัน: เมื่อ Login สำเร็จ ให้บันทึกข้อมูล User และโหลดแผง
-  const handleLoginSuccess = (userData) => {
-    setUser(userData);
-    fetchStalls();
-  };
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-  // ฟังก์ชัน: ดึงข้อมูลแผงจาก Server
-  const fetchStalls = () => {
-    axios.get('https://smart-market-h5xu.onrender.com/stalls')
-      .then(res => setStalls(res.data))
-      .catch(err => console.error(err));
-  };
+    if (isRegister) {
+      // 🟢 สมัครสมาชิก
+      axios.post('https://smart-market-h5xu.onrender.com/register', {
+        username,
+        password,
+        full_name: fullName,
+        phone_number: phone
+      })
+      .then(() => {
+        Swal.fire('สำเร็จ!', 'บันทึกข้อมูลแล้ว! เข้าสู่ระบบได้เลย', 'success');
+        setIsRegister(false);
+        setPassword('');
+      })
+      .catch((err) => {
+        Swal.fire('แจ้งเตือน', err.response?.data?.message || 'เกิดข้อผิดพลาด', 'error');
+      });
 
-  // ฟังก์ชัน: จองแผง (แบบง่าย ไม่ต้องกรอกเยอะ)
-  const handleBooking = (stall) => {
-    Swal.fire({
-      title: `ยืนยันจองแผง ${stall.code || 'A0'+stall.id}?`,
-      text: "คุณต้องการจองแผงนี้ใช่หรือไม่",
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'จองเลย!',
-      confirmButtonColor: '#10b981'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        axios.post('https://smart-market-h5xu.onrender.com/book', {
-          stall_id: stall.id,
-          user_id: user.id
-        }).then(() => {
-          Swal.fire('สำเร็จ', 'จองแผงเรียบร้อยแล้ว', 'success');
-          fetchStalls(); // โหลดใหม่ให้สถานะเปลี่ยน
+    } else {
+      // 🔵 เข้าสู่ระบบ
+      axios.post('https://smart-market-h5xu.onrender.com/login', { username, password })
+      .then((res) => {
+        const { user, token } = res.data;
+        Swal.fire({
+          icon: 'success',
+          title: 'ยินดีต้อนรับ',
+          text: `สวัสดีคุณ ${user.full_name}`,
+          timer: 1500,
+          showConfirmButton: false
         });
-      }
-    });
+        onLoginSuccess(user, token);
+      })
+      .catch((err) => {
+        Swal.fire('เข้าไม่ได้', 'ชื่อผู้ใช้หรือรหัสผ่านผิด', 'error');
+      });
+    }
   };
 
-  // ฟังก์ชัน: ออกจากระบบ
-  const handleLogout = () => {
-    setUser(null);
-  };
-
-  // 🔒 ถ้ายังไม่ Login -> ให้โชว์หน้า Login ก่อนเสมอ
-  if (!user) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // 🔓 ถ้า Login แล้ว -> โชว์หน้าจองแผง
   return (
-    <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+    // 👇 1. กล่องใหญ่สุด (Background) บังคับเต็มจอ + จัดกึ่งกลาง
+    <div style={{
+      display: 'flex',            // ใช้ Flexbox จัดระเบียบ
+      justifyContent: 'center',   // กึ่งกลางแนวนอน
+      alignItems: 'center',       // กึ่งกลางแนวตั้ง
+      minHeight: '100vh',         // สูงเต็มจอ 100%
+      width: '100vw',             // กว้างเต็มจอ 100%
+      background: '#f3f4f6',      // สีพื้นหลังเทาอ่อนๆ สบายตา
+      position: 'fixed',          // ล็อกตำแหน่งไว้
+      top: 0,
+      left: 0
+    }}>
       
-      {/* ส่วนหัว: แสดงชื่อคนล็อกอิน + ปุ่มออก */}
-      <div style={{
-        display:'flex', justifyContent:'space-between', alignItems:'center', 
-        marginBottom:'30px', padding:'15px', background:'#f3f4f6', borderRadius:'10px'
-      }}>
-         <h3 style={{margin:0}}>👤 ผู้ใช้งาน: {user.full_name}</h3>
-         <button onClick={handleLogout} style={{
-           background:'#ef4444', color:'white', border:'none', 
-           padding:'8px 15px', borderRadius:'5px', cursor:'pointer', fontWeight:'bold'
-         }}>
-           ออกจากระบบ
-         </button>
-      </div>
-
-      <h1 style={{ color: '#2563eb' }}>🗺️ ผังตลาด Smart Market (Basic)</h1>
-
-      {/* ตารางแสดงแผง */}
+      {/* 👇 2. กล่อง Login (Card) สีขาวตรงกลาง */}
       <div style={{ 
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', 
-        gap: '20px', maxWidth:'800px', margin:'0 auto' 
+        background: 'white', 
+        padding: '40px',             // เพิ่มพื้นที่ว่างด้านในให้ดูไม่อึดอัด
+        borderRadius: '20px',        // มุมโค้งมนสวยๆ
+        boxShadow: '0 10px 25px rgba(0,0,0,0.1)', // เงานุ่มๆ
+        width: '100%', 
+        maxWidth: '450px',           // 👈 ขยายความกว้างกล่องให้ใหญ่ขึ้น
+        textAlign: 'center' 
       }}>
-        {stalls.map(stall => (
-          <div key={stall.id} 
-               onClick={() => stall.status === 'AVAILABLE' && handleBooking(stall)}
-               style={{
-                 height: '120px',
-                 display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-                 border: '2px solid',
-                 borderColor: stall.status === 'AVAILABLE' ? '#34d399' : '#f87171',
-                 borderRadius: '15px',
-                 background: 'white',
-                 cursor: stall.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
-                 boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
-               }}>
-            <h2 style={{ margin: '0 0 10px 0', color: '#374151' }}>{stall.code || `A0${stall.id}`}</h2>
-            <span style={{
-              fontSize:'14px', 
-              color: stall.status === 'AVAILABLE' ? '#059669' : '#dc2626',
-              fontWeight: 'bold'
-            }}>
-              {stall.status === 'AVAILABLE' ? 'ว่าง ✅' : 'ไม่ว่าง ❌'}
-            </span>
-          </div>
-        ))}
+        
+        <h1 style={{ color: isRegister ? '#2563eb' : '#333', marginBottom: '20px', fontSize: '28px' }}>
+          {isRegister ? '📝 สมัครสมาชิก' : '🔐 เข้าสู่ระบบ'}
+        </h1>
+        
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <input 
+            type="text" 
+            placeholder="Username (ชื่อผู้ใช้)" 
+            value={username} 
+            onChange={e => setUsername(e.target.value)} 
+            required 
+            style={{ 
+              padding: '15px',        // ช่องกรอกใหญ่ขึ้น
+              borderRadius: '10px', 
+              border: '1px solid #ddd', 
+              fontSize: '16px',       // ตัวหนังสือใหญ่ขึ้น
+              background: '#f9fafb'
+            }} 
+          />
+          
+          <input 
+            type="password" 
+            placeholder="Password (รหัสผ่าน)" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            required 
+            style={{ 
+              padding: '15px', 
+              borderRadius: '10px', 
+              border: '1px solid #ddd', 
+              fontSize: '16px',
+              background: '#f9fafb'
+            }} 
+          />
+
+          {isRegister && (
+            <>
+              <input type="text" placeholder="ชื่อ-นามสกุลจริง" value={fullName} onChange={e => setFullName(e.target.value)} required style={{ padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', background: '#f9fafb' }} />
+              <input type="text" placeholder="เบอร์โทรศัพท์" value={phone} onChange={e => setPhone(e.target.value)} required style={{ padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', background: '#f9fafb' }} />
+            </>
+          )}
+
+          <button type="submit" style={{ 
+            padding: '15px', 
+            background: isRegister ? '#2563eb' : '#10b981', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '10px', 
+            cursor: 'pointer', 
+            fontWeight: 'bold', 
+            fontSize: '18px',         // ปุ่มใหญ่สะใจ
+            marginTop: '10px',
+            transition: '0.3s'
+          }}>
+            {isRegister ? 'ยืนยันการสมัคร' : 'เข้าสู่ระบบ'}
+          </button>
+        </form>
+
+        <div style={{ marginTop: '25px', fontSize: '15px', color: '#666' }}>
+          {isRegister ? 'มีบัญชีแล้ว?' : 'ยังไม่มีบัญชี?'}
+          <span 
+            onClick={() => setIsRegister(!isRegister)} 
+            style={{ 
+              color: '#3b82f6', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              marginLeft: '5px', 
+              textDecoration: 'underline' 
+            }}
+          >
+            {isRegister ? 'กลับไปหน้า Login' : 'สมัครสมาชิกที่นี่'}
+          </span>
+        </div>
+
       </div>
     </div>
   );
 }
 
-export default App;
+export default Login;
