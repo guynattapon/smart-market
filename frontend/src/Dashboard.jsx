@@ -2,48 +2,58 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Wallet, Store } from 'lucide-react';
-import StallTable from './StallTable'; // ✅ 1. Import มาแล้ว
+import StallTable from './StallTable';
 
 function Dashboard() {
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null); // ตัวแปรเก็บ Error
 
   useEffect(() => {
     axios.get('https://smart-market-h5xu.onrender.com/admin/stats')
       .then(res => setStats(res.data))
-      .catch(err => console.error(err));
+      .catch(err => {
+        console.error(err);
+        // เก็บข้อความ Error เอามาโชว์
+        setError(err.response?.data?.message || err.message);
+      });
   }, []);
 
-  if (!stats) return <p>กำลังประมวลผลข้อมูล...</p>;
+  // 🔴 ถ้ามี Error ให้โชว์กรอบแดงๆ ฟ้องเลย
+  if (error) return (
+    <div style={{ padding: '30px', textAlign: 'center', color: '#721c24', backgroundColor: '#f8d7da', borderRadius: '10px', margin: '20px' }}>
+        <h3>⚠️ เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+        <p>Server แจ้งว่า: <strong>{error}</strong></p>
+        <p><em>(อาจเป็นเพราะลืมอัปเดตโค้ด server.js หรือ Database ยังไม่มีข้อมูลบิล)</em></p>
+    </div>
+  );
 
-  // เตรียมสีสำหรับกราฟ
-  const COLORS = ['#ef4444', '#10b981', '#ccc']; // แดง (ไม่ว่าง), เขียว (ว่าง), เทา
+  if (!stats) return <p style={{ padding: '20px', textAlign: 'center' }}>⏳ กำลังโหลดข้อมูลจาก Server... (รอแป๊บนึง)</p>;
+
+  // ... (ส่วนกราฟข้างล่างเหมือนเดิมเป๊ะ) ...
+  const COLORS = ['#ef4444', '#10b981', '#ccc']; 
   
-  // แปลงข้อมูลสำหรับกราฟวงกลม
   const pieData = stats.stallStats.map(s => ({
     name: s.status === 'OCCUPIED' ? 'มีคนเช่า' : (s.status === 'VACANT' ? 'ว่าง' : 'ปิดปรับปรุง'),
     value: parseInt(s.count)
   }));
 
-  // แปลงข้อมูลสำหรับกราฟแท่ง
   const barData = [
-    { name: 'ค่าเช่า', amount: parseInt(stats.incomeTypes.rent) },
-    { name: 'ค่าน้ำ', amount: parseInt(stats.incomeTypes.water) },
-    { name: 'ค่าไฟ', amount: parseInt(stats.incomeTypes.electric) },
+    { name: 'ค่าเช่า', amount: parseInt(stats.incomeTypes.rent || 0) },
+    { name: 'ค่าน้ำ', amount: parseInt(stats.incomeTypes.water || 0) },
+    { name: 'ค่าไฟ', amount: parseInt(stats.incomeTypes.electric || 0) },
   ];
 
   return (
     <div style={{ marginBottom: '40px' }}>
       <h2 style={{ borderBottom: 'none', marginBottom: '20px' }}>📊 แดชบอร์ดผู้บริหาร</h2>
       
-      {/* 1. การ์ดสรุปตัวเลข (Top Cards) */}
+      {/* การ์ดสรุปตัวเลข */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-        
-        {/* การ์ดรายได้ */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '5px solid #2563eb' }}>
           <div>
             <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>รายได้รวมทั้งหมด</p>
             <h2 style={{ margin: '5px 0', fontSize: '1.8rem', color: '#1f2937', border: 'none' }}>
-              ฿{parseInt(stats.totalIncome).toLocaleString()}
+              ฿{parseInt(stats.totalIncome || 0).toLocaleString()}
             </h2>
           </div>
           <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '50%' }}>
@@ -51,7 +61,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* การ์ดจำนวนแผง */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '5px solid #f59e0b' }}>
           <div>
             <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>พื้นที่เช่าทั้งหมด</p>
@@ -65,10 +74,8 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* 2. กราฟแสดงผล (Charts) */}
+      {/* กราฟ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-        
-        {/* กราฟแท่ง: แหล่งที่มาของรายได้ */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
           <h3 style={{ marginTop: 0, color: '#4b5563' }}>💰 สัดส่วนรายได้</h3>
           <div style={{ width: '100%', height: 250 }}>
@@ -87,21 +94,12 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* กราฟวงกลม: สถานะแผง */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
           <h3 style={{ marginTop: 0, color: '#4b5563' }}>🥧 สถานะพื้นที่เช่า</h3>
           <div style={{ width: '100%', height: 250 }}>
             <ResponsiveContainer>
               <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="value">
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.name === 'มีคนเช่า' ? '#ef4444' : '#10b981'} />
                   ))}
@@ -114,9 +112,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* 👇 3. วางตารางไว้ล่างสุดตรงนี้ครับ! */}
       <StallTable />
-
     </div>
   );
 }
