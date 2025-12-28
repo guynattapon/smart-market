@@ -1,16 +1,41 @@
-# React + Vite
+# 🏪 Smart Market (ระบบจองแผงตลาดอัจฉริยะ)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+เว็บแอปพลิเคชันสำหรับบริหารจัดการแผงค้าในตลาด แบบครบวงจร (Full Stack Web Application)
+เชื่อมต่อฐานข้อมูลจริง แสดงผลกราฟและแผนที่แบบ Interactive
 
-Currently, two official plugins are available:
+🔗 **Demo Link:** [กดที่นี่เพื่อเข้าชมเว็บไซต์](https://smart-market-bice.vercel.app)
+*(Username: admin / Password: 1234)*
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🚀 ฟีเจอร์หลัก (Key Features)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+-   **🔐 ระบบยืนยันตัวตน (Authentication):** แยกสิทธิ์การใช้งานระหว่าง "เจ้าของตลาด" (Admin) และ "ผู้เช่า" (Tenant)
+-   **📊 แดชบอร์ดผู้บริหาร (Admin Dashboard):** ดูกราฟสรุปรายได้, จำนวนแผงว่าง, และข้อมูลสำคัญแบบ Real-time
+-   **🗺️ แผนที่ตลาดอัจฉริยะ (Interactive Map):** แสดงผังตลาด แผงไหนว่าง/ไม่ว่าง เป็นสีเขียว/แดง
+-   **📱 Responsive Design:** รองรับการใช้งานทั้งบนคอมพิวเตอร์และมือถือ
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
+
+**Frontend:**
+-   ⚛️ React + Vite
+-   🎨 CSS (Custom Design + Google Fonts 'Kanit')
+-   📈 Recharts (กราฟ)
+-   🔔 SweetAlert2 (แจ้งเตือนสวยงาม)
+
+**Backend:**
+-   🟢 Node.js + Express
+-   🐘 PostgreSQL (Database)
+-   🔐 JWT (ระบบล็อกอิน)
+
+**Infrastructure:**
+-   ☁️ Render (Database & Backend Hosting)
+-   ▲ Vercel (Frontend Hosting)
+
+---
+
+## 👨‍💻 ผู้พัฒนา
+พัฒนาโดย **[ใส่ชื่อเล่นหรือชื่อจริงภาษาอังกฤษของเพื่อนตรงนี้]**
+โปรเจ็คนี้เป็นส่วนหนึ่งของการฝึกฝนทักษะ Full Stack Developer
