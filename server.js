@@ -57,31 +57,30 @@ app.get('/admin/stats', async (req, res) => {
 // ----------------------------------------------------
 
 // API อื่นๆ (Login, Stalls, Bills) ยังคงเดิม
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+// 👇 API สำหรับสมัครสมาชิก (Register)
+app.post('/register', async (req, res) => {
+  const { username, password, full_name, phone_number } = req.body;
+  
+  // ตรวจสอบว่ากรอกครบไหม
+  if (!username || !password || !full_name) {
+    return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+  }
+
   try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (result.rows.length > 0) {
-      const user = result.rows[0];
-      if (password === user.password) { // ของจริงควรใช้ bcrypt
-        res.json({ 
-          token: 'mock-token-123', 
-          user: { 
-            id: user.id, 
-            username: user.username, 
-            full_name: user.full_name, 
-            role: user.role,
-            phone_number: user.phone_number
-          } 
-        });
-      } else {
-        res.status(401).json({ message: 'รหัสผ่านไม่ถูกต้อง' });
-      }
-    } else {
-      res.status(404).json({ message: 'ไม่พบชื่อผู้ใช้นี้' });
-    }
+    // บันทึกลง Database (บังคับให้เป็น role: TENANT เท่านั้น เพื่อความปลอดภัย)
+    await pool.query(
+      "INSERT INTO users (username, password, full_name, role, phone_number) VALUES ($1, $2, $3, 'TENANT', $4)",
+      [username, password, full_name, phone_number]
+    );
+    res.json({ message: 'สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    // ถ้า Error code 23505 แปลว่า username ซ้ำ
+    if (err.code === '23505') {
+      res.status(400).json({ message: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว เปลี่ยนชื่อใหม่นะ' });
+    } else {
+      console.error(err);
+      res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + err.message });
+    }
   }
 });
 
