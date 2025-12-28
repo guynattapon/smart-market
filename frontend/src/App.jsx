@@ -3,14 +3,14 @@ import axios from 'axios'
 import './App.css'
 import Login from './Login'
 import Dashboard from './Dashboard';
-import Profile from './Profile'; // ✅ นำเข้าหน้า Profile
+import Profile from './Profile';
 
 function App() {
   const [user, setUser] = useState(null)
   const [stalls, setStalls] = useState([])
   const [myBills, setMyBills] = useState([])
   
-  // 👇 เพิ่มตัวแปรสำหรับสลับหน้า ('home' หรือ 'profile')
+  // 👇 ต้องมีบรรทัดนี้นะครับ! (ตัวแปรสลับหน้า)
   const [currentPage, setCurrentPage] = useState('home');
 
   useEffect(() => {
@@ -38,7 +38,7 @@ function App() {
     setUser(userData)
     localStorage.setItem('user_data', JSON.stringify(userData))
     fetchData(userData)
-    setCurrentPage('home'); // ล็อกอินเสร็จไปหน้าบ้าน
+    setCurrentPage('home');
   }
 
   const handleLogout = () => {
@@ -91,7 +91,7 @@ function App() {
 
   if (!user) return <Login onLoginSuccess={handleLoginSuccess} />
 
-  // 👇 ถ้า user เลือกหน้า Profile ให้โชว์หน้านั้นแทน
+  // 👇 ถ้ากดปุ่มแล้ว ให้โชว์หน้า Profile
   if (currentPage === 'profile') {
     return <Profile user={user} onBack={() => setCurrentPage('home')} />;
   }
@@ -99,15 +99,14 @@ function App() {
   return (
     <div className="container"> 
       
-      {/* ส่วนหัว Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>👤 ผู้ใช้งาน: {user.full_name} ({user.role})</h2>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-            {/* 👇 ปุ่มกดไปหน้าข้อมูลส่วนตัว */}
+            {/* 👇 ปุ่มพระเอกของเรา ต้องอยู่นี่ครับ */}
             <button 
                 onClick={() => setCurrentPage('profile')}
-                style={{ padding: '8px 15px', borderRadius: '20px', border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}
+                style={{ padding: '8px 15px', borderRadius: '20px', border: '1px solid #ccc', background: 'white', cursor: 'pointer', color: '#333' }}
             >
                 ข้อมูลส่วนตัว
             </button>
@@ -118,7 +117,6 @@ function App() {
         </div>
       </div>
 
-      {/* โชว์ Dashboard เฉพาะ Admin */}
       {user.role === 'ADMIN' && (
          <Dashboard />
       )}
