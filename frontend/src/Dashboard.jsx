@@ -7,7 +7,7 @@ function Dashboard() {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    axios.get('http://localhost:3000/admin/stats')
+    axios.get('https://smart-market-h5xu.onrender.com/admin/stats')
       .then(res => setStats(res.data))
       .catch(err => console.error(err));
   }, []);

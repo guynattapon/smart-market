@@ -18,12 +18,12 @@ function App() {
   }, [])
 
   const fetchData = (userData) => {
-    axios.get('http://localhost:3000/stalls')
+    axios.get('https://smart-market-h5xu.onrender.com/stalls')
       .then((res) => setStalls(res.data))
       .catch((err) => console.error(err))
 
     if (userData && userData.role === 'TENANT') {
-      axios.get(`http://localhost:3000/my-bills/${userData.id}`)
+      axios.get(`https://smart-market-h5xu.onrender.com/my-bills/${userData.id}`)
         .then((res) => setMyBills(res.data))
         .catch((err) => console.error(err))
     }
@@ -45,7 +45,7 @@ function App() {
   const handlePayBill = (bill) => {
     const confirm = window.confirm(`ยืนยันการจ่ายเงินยอด ${bill.total_amount} บาท?`)
     if (confirm) {
-      axios.post('http://localhost:3000/pay-bill', { bill_id: bill.id })
+      axios.post('https://smart-market-h5xu.onrender.com/pay-bill', { bill_id: bill.id })
         .then((res) => {
           alert(res.data.message)
           fetchData(user)
@@ -57,7 +57,7 @@ function App() {
   const handleStallClick = (stall) => {
     if (stall.status === 'VACANT') {
       if (window.confirm(`ยืนยันจองแผง ${stall.code} ในนามคุณ ${user.full_name}?`)) {
-        axios.post('http://localhost:3000/book', { stall_id: stall.id, user_id: user.id })
+        axios.post('https://smart-market-h5xu.onrender.com/book', { stall_id: stall.id, user_id: user.id })
           .then(() => { alert('🎉 จองสำเร็จ!'); fetchData(user); })
           .catch(err => alert('Error: ' + err.message))
       }
@@ -70,7 +70,7 @@ function App() {
       const electric = prompt(`กรอก "เลขมิเตอร์ไฟ":`);
       if (!electric) return;
 
-      axios.post('http://localhost:3000/create-bill', {
+      axios.post('https://smart-market-h5xu.onrender.com/create-bill', {
         stall_id: stall.id,
         water_current: water,
         electric_current: electric

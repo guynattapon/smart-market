@@ -9,7 +9,7 @@ function Login({ onLoginSuccess }) {
     e.preventDefault();
     
     // ยิงไปขอ Login ที่หลังบ้าน
-    axios.post('http://localhost:3000/login', { username, password })
+    axios.post('https://smart-market-h5xu.onrender.com/login', { username, password })
       .then((res) => {
         alert(`ยินดีต้อนรับคุณ ${res.data.user.full_name}`);
         // ส่งข้อมูล user กลับไปบอก App ตัวแม่ว่า "ผ่านแล้วนะ"
