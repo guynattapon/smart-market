@@ -260,7 +260,7 @@ function App() {
 
       {/* 👇 Footer ด้านล่างสุด */}
       <footer style={{ marginTop: '60px', textAlign: 'center', color: '#9ca3af', fontSize: '14px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-        <p>© 2024 Smart Market System by <strong>[ชื่อเพื่อนใส่ตรงนี้]</strong></p>
+        <p>© 2026 Smart Market System by <strong>[Guy_karakate]</strong></p>
         <p>Full Stack Project (React + Node.js + PostgreSQL)</p>
       </footer>
 
