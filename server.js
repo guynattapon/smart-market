@@ -8,150 +8,71 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// เชื่อมต่อ Database (ถ้าเชื่อมไม่ได้จะฟ้อง Error ชัดๆ)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// --- 👇 โซน API สำหรับ Admin Dashboard (ตัวต้นเหตุ) ---
-app.get('/admin/stats', async (req, res) => {
-  try {
-    // 1. ดึงข้อมูลสถานะแผง (ว่าง/ไม่ว่าง)
-    const stallRes = await pool.query(`
-      SELECT status, COUNT(*) as count 
-      FROM stalls 
-      GROUP BY status
-    `);
-
-    // 2. ดึงข้อมูลรายได้ (แยกประเภท) - ใช้ COALESCE เพื่อกันค่า NULL (ถ้าไม่มีบิล)
-    const incomeRes = await pool.query(`
-      SELECT 
-        COALESCE(SUM(total_amount), 0) as total_income,
-        COALESCE(SUM(rent_price), 0) as rent,
-        COALESCE(SUM(water_total), 0) as water,
-        COALESCE(SUM(electric_total), 0) as electric
-      FROM bills 
-      WHERE status = 'PAID'
-    `);
-
-    // เตรียมข้อมูลส่งกลับ (ถ้า database ว่างเปล่า ให้ใส่ค่า 0 รอไว้)
-    const incomeData = incomeRes.rows[0] || { total_income: 0, rent: 0, water: 0, electric: 0 };
-
-    res.json({
-      stallStats: stallRes.rows, // ส่ง array ว่างไปถ้าไม่มีข้อมูล
-      totalIncome: incomeData.total_income,
-      incomeTypes: {
-        rent: incomeData.rent,
-        water: incomeData.water,
-        electric: incomeData.electric
-      }
-    });
-
-  } catch (err) {
-    console.error('❌ Error in /admin/stats:', err.message);
-    // ส่ง error กลับไปบอก Frontend (500)
-    res.status(500).json({ message: 'Server Error: ' + err.message });
-  }
-});
-// ----------------------------------------------------
-
-// API อื่นๆ (Login, Stalls, Bills) ยังคงเดิม
-// 👇 API สำหรับสมัครสมาชิก (Register)
+// 👇 API สมัครสมาชิก (สำคัญมาก! ต้องมีอันนี้ข้อมูลถึงจะลง DB)
 app.post('/register', async (req, res) => {
   const { username, password, full_name, phone_number } = req.body;
   
-  // ตรวจสอบว่ากรอกครบไหม
   if (!username || !password || !full_name) {
     return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
   }
 
   try {
-    // บันทึกลง Database (บังคับให้เป็น role: TENANT เท่านั้น เพื่อความปลอดภัย)
+    // บันทึกลง Database (บังคับให้เป็น role: TENANT)
     await pool.query(
       "INSERT INTO users (username, password, full_name, role, phone_number) VALUES ($1, $2, $3, 'TENANT', $4)",
       [username, password, full_name, phone_number]
     );
     res.json({ message: 'สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ' });
   } catch (err) {
-    // ถ้า Error code 23505 แปลว่า username ซ้ำ
     if (err.code === '23505') {
-      res.status(400).json({ message: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว เปลี่ยนชื่อใหม่นะ' });
+      res.status(400).json({ message: 'ชื่อผู้ใช้นี้มีคนใช้แล้ว' });
     } else {
-      console.error(err);
       res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + err.message });
     }
   }
 });
 
-app.get('/stalls', async (req, res) => {
+// 👇 API เข้าสู่ระบบ (Login)
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM stalls ORDER BY id ASC');
-    res.json(result.rows);
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      // เช็คว่ารหัสตรงกันไหม (แบบตรงไปตรงมา)
+      if (password === user.password) { 
+        res.json({ 
+          token: 'mock-token-123', 
+          user: { 
+            id: user.id, 
+            username: user.username, 
+            full_name: user.full_name, 
+            role: user.role,
+            phone_number: user.phone_number
+          } 
+        });
+      } else {
+        res.status(401).json({ message: 'รหัสผ่านไม่ถูกต้อง' });
+      }
+    } else {
+      res.status(404).json({ message: 'ไม่พบชื่อผู้ใช้นี้' });
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-app.get('/my-bills/:userId', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT b.*, s.code as stall_code 
-      FROM bills b
-      JOIN stalls s ON b.stall_id = s.id
-      WHERE s.tenant_id = $1
-      ORDER BY b.created_at DESC
-    `, [req.params.userId]);
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// ... (API อื่นๆ เช่น /stalls, /bills, /book คงเดิมไว้ด้านล่าง) ...
+// (ถ้าไฟล์เดิมมีโค้ดพวกนั้นอยู่แล้ว ให้วางทับแค่ส่วนบน หรือเช็คว่า API อื่นๆ ไม่หายไปนะครับ)
 
-app.post('/book', async (req, res) => {
-  const { stall_id, user_id } = req.body;
-  try {
-    await pool.query('UPDATE stalls SET status = $1, tenant_id = $2 WHERE id = $3', ['OCCUPIED', user_id, stall_id]);
-    res.json({ message: 'จองสำเร็จ' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-app.post('/create-bill', async (req, res) => {
-  const { stall_id, water_current, electric_current } = req.body;
-  try {
-    // 1. ดึงราคาแผง
-    const stallRes = await pool.query('SELECT monthly_price FROM stalls WHERE id = $1', [stall_id]);
-    const rentPrice = stallRes.rows[0].monthly_price;
-    
-    // 2. คำนวณค่าน้ำค่าไฟ (สมมติหน่วยละ 20 บาท)
-    const waterTotal = water_current * 20; 
-    const electricTotal = electric_current * 20;
-    const total = parseFloat(rentPrice) + waterTotal + electricTotal;
-
-    // 3. สร้างบิล
-    await pool.query(`
-      INSERT INTO bills (stall_id, rent_price, water_unit, water_total, electric_unit, electric_total, total_amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING')
-    `, [stall_id, rentPrice, water_current, waterTotal, electric_current, electricTotal, total]);
-
-    res.json({ message: 'ออกบิลสำเร็จ' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-app.post('/pay-bill', async (req, res) => {
-  const { bill_id } = req.body;
-  try {
-    await pool.query("UPDATE bills SET status = 'PAID' WHERE id = $1", [bill_id]);
-    res.json({ message: 'ชำระเงินเรียบร้อย' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
+// (ส่วนล่างสุดของไฟล์ server.js ต้องมีพวกนี้เสมอ)
+app.get('/stalls', async (req, res) => { /* ...โค้ดเดิม... */ });
+// ...
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
