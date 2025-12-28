@@ -1,25 +1,20 @@
+/* 1. นำเข้าฟอนต์ Kanit จาก Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap');
+
+/* 2. ตั้งค่าพื้นฐานทั้งเว็บ */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Kanit', sans-serif; /* บังคับใช้ฟอนต์นี้ทั้งเว็บ */
   line-height: 1.5;
   font-weight: 400;
-
+  
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  background-color: #f0f2f5; /* พื้นหลังสีเทาอ่อน สบายตา */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
 }
 
 body {
@@ -30,39 +25,41 @@ body {
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
+/* 3. ตกแต่งปุ่มกด (Button) ให้สวยหรู */
 button {
-  border-radius: 8px;
+  border-radius: 30px !important; /* ปุ่มกลมมน */
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: 600 !important;
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: all 0.25s; /* เอฟเฟกต์สมูท */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* เงาปุ่ม */
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+button:hover {
+  transform: translateY(-2px); /* ลอยขึ้นนิดนึงตอนชี้ */
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2); /* เงาเข้มขึ้น */
+  border-color: #646cff;
+}
+
+button:active {
+  transform: translateY(0); /* กดยุบลงไป */
+}
+
+/* 4. ตกแต่งกล่องต่างๆ (Card) */
+div[style*="border"], .dashboard-container {
+  background: white;
+  border-radius: 16px !important; /* มุมโค้งมน */
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05) !important; /* เงาฟุ้งๆ ดูแพง */
+  border: none !important; /* เอาเส้นขอบแข็งๆ ออก */
+  color: #333; /* ตัวหนังสือสีเข้ม */
+}
+
+/* จัดหัวข้อให้เด่น */
+h1, h2, h3 {
+  color: #2c3e50;
+  font-weight: 600;
 }
