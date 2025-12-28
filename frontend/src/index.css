@@ -63,3 +63,33 @@ h1, h2, h3 {
   color: #2c3e50;
   font-weight: 600;
 }
+/* ...โค้ดเก่า... */
+
+/* ตกแต่งตาราง */
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.custom-table th, .custom-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.custom-table th {
+  background-color: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+}
+
+/* ทำแถบสีสลับลายม้าลาย (Zebra Striping) อ่านง่าย */
+.custom-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.custom-table tr:hover {
+  background-color: #eef2f7; /* เอาเมาส์ชี้แล้วเปลี่ยนสี */
+  transition: 0.2s;
+}

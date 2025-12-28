@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Wallet, Store } from 'lucide-react';
+import StallTable from './StallTable'; // ✅ 1. Import มาแล้ว
 
 function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -65,7 +66,7 @@ function Dashboard() {
       </div>
 
       {/* 2. กราฟแสดงผล (Charts) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '40px' }}>
         
         {/* กราฟแท่ง: แหล่งที่มาของรายได้ */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
@@ -111,8 +112,11 @@ function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        
       </div>
+
+      {/* 👇 3. วางตารางไว้ล่างสุดตรงนี้ครับ! */}
+      <StallTable />
+
     </div>
   );
 }
