@@ -14,12 +14,11 @@ app.use(express.json());
 // 1. ตั้งค่า Database
 // ----------------------------------------------------
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'postgres',
-  password: '1234', // <--- รหัสผ่านของคุณ
-  port: 5432,
+    // ถ้ามีลิงก์จาก Render (ของจริง) ให้ใช้ลิงก์นั้น, ถ้าไม่มีให้ใช้ Localhost (เครื่องเรา)
+    connectionString: process.env.DATABASE_URL || 'postgresql://smart_market_db_user:kDui48bPEWBxyKllqj30uokTjHYpriWy@dpg-d58cgbbuibrs73akp7j0-a.singapore-postgres.render.com/smart_market_db',
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
+
 
 // 2. ทดสอบการเชื่อมต่อ
 pool.connect((err) => {
