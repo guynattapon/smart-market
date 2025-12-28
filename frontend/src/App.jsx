@@ -3,10 +3,15 @@ import axios from 'axios'
 import './App.css'
 import Login from './Login'
 import Dashboard from './Dashboard';
+import Profile from './Profile'; // ✅ นำเข้าหน้า Profile
+
 function App() {
   const [user, setUser] = useState(null)
   const [stalls, setStalls] = useState([])
   const [myBills, setMyBills] = useState([])
+  
+  // 👇 เพิ่มตัวแปรสำหรับสลับหน้า ('home' หรือ 'profile')
+  const [currentPage, setCurrentPage] = useState('home');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user_data')
@@ -33,6 +38,7 @@ function App() {
     setUser(userData)
     localStorage.setItem('user_data', JSON.stringify(userData))
     fetchData(userData)
+    setCurrentPage('home'); // ล็อกอินเสร็จไปหน้าบ้าน
   }
 
   const handleLogout = () => {
@@ -40,6 +46,7 @@ function App() {
     localStorage.removeItem('user_data')
     setStalls([])
     setMyBills([])
+    setCurrentPage('home');
   }
 
   const handlePayBill = (bill) => {
@@ -84,25 +91,40 @@ function App() {
 
   if (!user) return <Login onLoginSuccess={handleLoginSuccess} />
 
+  // 👇 ถ้า user เลือกหน้า Profile ให้โชว์หน้านั้นแทน
+  if (currentPage === 'profile') {
+    return <Profile user={user} onBack={() => setCurrentPage('home')} />;
+  }
+
   return (
-    // ✨ 1. ใช้ container จาก CSS
     <div className="container"> 
       
+      {/* ส่วนหัว Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>👤 ผู้ใช้งาน: {user.full_name} ({user.role})</h2>
-        {/* ✨ 2. ปุ่ม Logout สีแดง */}
-        <button onClick={handleLogout} className="btn-logout" style={{ color: 'white' }}>
-          ออกจากระบบ
-        </button>
-      </div>
-{/* โชว์ Dashboard เฉพาะ Admin */}
-{user.role === 'ADMIN' && (
-   <Dashboard />
+        
+        <div style={{ display: 'flex', gap: '10px' }}>
+            {/* 👇 ปุ่มกดไปหน้าข้อมูลส่วนตัว */}
+            <button 
+                onClick={() => setCurrentPage('profile')}
+                style={{ padding: '8px 15px', borderRadius: '20px', border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}
+            >
+                ข้อมูลส่วนตัว
+            </button>
 
-)}
+            <button onClick={handleLogout} className="btn-logout" style={{ color: 'white' }}>
+                ออกจากระบบ
+            </button>
+        </div>
+      </div>
+
+      {/* โชว์ Dashboard เฉพาะ Admin */}
+      {user.role === 'ADMIN' && (
+         <Dashboard />
+      )}
+
       <h1>🗺️ แผนที่ตลาด (Smart Market)</h1>
       
-      {/* ✨ 3. กรอบแผนที่สวยๆ */}
       <div className="map-container" style={{ position: 'relative', width: '600px', height: '400px', margin: '0 auto 30px', borderRadius: '10px' }}>
         {stalls.map((stall) => {
           const coords = stall.map_coordinates || { x: 0, y: 0 }
@@ -110,7 +132,6 @@ function App() {
           
           return (
             <div key={stall.id}
-              // ✨ 4. ใส่ class stall-box ให้เด้งดึ๋ง
               className="stall-box"
               style={{
                 position: 'absolute', left: `${coords.x}px`, top: `${coords.y}px`,
@@ -162,7 +183,6 @@ function App() {
                     </td>
                     <td>
                       {bill.status === 'PENDING' && (
-                        // ✨ 5. ปุ่มแจ้งโอน สีฟ้าสวยๆ
                         <button 
                           onClick={() => handlePayBill(bill)}
                           className="btn-pay"
