@@ -15,6 +15,7 @@ const pool = new Pool({
 
 // 👇 API สมัครสมาชิก (สำคัญมาก! ต้องมีอันนี้ข้อมูลถึงจะลง DB)
 // 👇 API สำหรับสมัครสมาชิก (Register) - วางส่วนนี้เพิ่มเข้าไปครับ
+// 👇 API สำหรับสมัครสมาชิก (Register) - วางส่วนนี้เพิ่มเข้าไปครับ
 app.post('/register', async (req, res) => {
   const { username, password, full_name, phone_number } = req.body;
   
@@ -40,6 +41,7 @@ app.post('/register', async (req, res) => {
     }
   }
 });
+// 👆 จบส่วน API สมัครสมาชิก
 // 👆 จบส่วน API สมัครสมาชิก
 // 👇 API เข้าสู่ระบบ (Login)
 app.post('/login', async (req, res) => {
