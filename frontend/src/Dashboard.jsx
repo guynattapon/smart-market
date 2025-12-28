@@ -9,34 +9,39 @@ function Dashboard() {
   const [error, setError] = useState(null); // ตัวแปรเก็บ Error
 
   useEffect(() => {
+    // ดึงข้อมูลสถิติ
     axios.get('https://smart-market-h5xu.onrender.com/admin/stats')
       .then(res => setStats(res.data))
       .catch(err => {
         console.error(err);
-        // เก็บข้อความ Error เอามาโชว์
+        // ถ้าพัง ให้เก็บข้อความ Error ไว้บอกหน้าจอ
         setError(err.response?.data?.message || err.message);
       });
   }, []);
 
-  // 🔴 ถ้ามี Error ให้โชว์กรอบแดงๆ ฟ้องเลย
+  // 🔴 1. ถ้ามี Error ให้โชว์กรอบแดงๆ ฟ้องเลย
   if (error) return (
     <div style={{ padding: '30px', textAlign: 'center', color: '#721c24', backgroundColor: '#f8d7da', borderRadius: '10px', margin: '20px' }}>
         <h3>⚠️ เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
-        <p>Server แจ้งว่า: <strong>{error}</strong></p>
-        <p><em>(อาจเป็นเพราะลืมอัปเดตโค้ด server.js หรือ Database ยังไม่มีข้อมูลบิล)</em></p>
+        <p>ระบบแจ้งว่า: <strong>{error}</strong></p>
+        <hr style={{ borderColor: '#f5c6cb', margin: '15px 0' }}/>
+        <p style={{ fontSize: '0.9rem' }}>
+          <strong>วิธีแก้เบื้องต้น:</strong><br/>
+          ถ้าขึ้นว่า <em>"404 Not Found"</em> แปลว่าลืมอัปเดตไฟล์ server.js (หลังบ้าน)<br/>
+          ถ้าขึ้นว่า <em>"Network Error"</em> แปลว่า Server บน Render กำลังหลับอยู่ (รอกด Refresh ใหม่)
+        </p>
     </div>
   );
 
-  if (!stats) return <p style={{ padding: '20px', textAlign: 'center' }}>⏳ กำลังโหลดข้อมูลจาก Server... (รอแป๊บนึง)</p>;
+  // 🟡 2. ถ้ากำลังโหลด (เปลี่ยนข้อความให้รู้ว่าเป็นโค้ดใหม่)
+  if (!stats) return <p style={{ padding: '40px', textAlign: 'center', fontSize: '1.2rem', color: '#666' }}>⏳ กำลังติดต่อ Server... (รอสักครู่นะครับ)</p>;
 
-  // ... (ส่วนกราฟข้างล่างเหมือนเดิมเป๊ะ) ...
+  // ... (ส่วนกราฟข้างล่างเหมือนเดิม) ...
   const COLORS = ['#ef4444', '#10b981', '#ccc']; 
-  
   const pieData = stats.stallStats.map(s => ({
     name: s.status === 'OCCUPIED' ? 'มีคนเช่า' : (s.status === 'VACANT' ? 'ว่าง' : 'ปิดปรับปรุง'),
     value: parseInt(s.count)
   }));
-
   const barData = [
     { name: 'ค่าเช่า', amount: parseInt(stats.incomeTypes.rent || 0) },
     { name: 'ค่าน้ำ', amount: parseInt(stats.incomeTypes.water || 0) },
