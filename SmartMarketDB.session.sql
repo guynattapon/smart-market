@@ -1,56 +1,46 @@
--- 1. สร้างตาราง Users
+-- 1. 💣 ระเบิดตารางเก่าทิ้งให้เกลี้ยง (Clean Slate)
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS stalls CASCADE;
+DROP TABLE IF EXISTS bills CASCADE;
+
+-- 2. 🏗️ สร้างตาราง Users ใหม่ (แบบสเปคถูกต้อง 100%)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN', 'TENANT')),
-    full_name VARCHAR(100),
+    username VARCHAR(50) UNIQUE NOT NULL,  -- บังคับว่าห้ามชื่อซ้ำ
+    password VARCHAR(100) NOT NULL,        -- รหัสผ่าน
+    full_name VARCHAR(100) NOT NULL,
+    role VARCHAR(20) DEFAULT 'TENANT',
     phone_number VARCHAR(20),
+    id_card_number VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. สร้างตาราง Zones
-CREATE TABLE zones (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    description TEXT
-);
-
--- 3. สร้างตาราง Stalls
+-- 3. 🏗️ สร้างตาราง Stalls (แผงค้า) ใหม่
 CREATE TABLE stalls (
     id SERIAL PRIMARY KEY,
-    zone_id INT REFERENCES zones(id),
     code VARCHAR(10) NOT NULL,
-    status VARCHAR(20) DEFAULT 'VACANT' CHECK (status IN ('VACANT', 'OCCUPIED', 'MAINTENANCE')),
-    monthly_price DECIMAL(10, 2) NOT NULL,
-    map_coordinates JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status VARCHAR(20) DEFAULT 'AVAILABLE',
+    tenant_id INTEGER REFERENCES users(id),
+    monthly_price DECIMAL(10,2) DEFAULT 3000,
+    zone_name VARCHAR(50) DEFAULT 'ทั่วไป',
+    price_daily DECIMAL(10,2) DEFAULT 100,
+    current_shop_name VARCHAR(100),
+    current_product_type VARCHAR(100),
+    booking_type VARCHAR(10)
 );
 
--- 4. สร้างตาราง Rentals
-CREATE TABLE rentals (
-    id SERIAL PRIMARY KEY,
-    tenant_id INT REFERENCES users(id),
-    stall_id INT REFERENCES stalls(id),
-    start_date DATE NOT NULL,
-    end_date DATE,
-    deposit_amount DECIMAL(10, 2),
-    is_active BOOLEAN DEFAULT TRUE
-);
+-- 4. 👤 สร้าง User: Admin (รหัส 1234)
+INSERT INTO users (username, password, full_name, role, phone_number)
+VALUES ('admin', '1234', 'เจ้าของตลาด', 'ADMIN', '081-111-1111');
 
--- 5. สร้างตาราง Bills
-CREATE TABLE bills (
-    id SERIAL PRIMARY KEY,
-    rental_id INT REFERENCES rentals(id),
-    billing_month DATE NOT NULL,
-    rent_fee DECIMAL(10, 2) NOT NULL,
-    water_meter_old DECIMAL(10, 2),
-    water_meter_new DECIMAL(10, 2),
-    water_total DECIMAL(10, 2),
-    electric_meter_old DECIMAL(10, 2),
-    electric_meter_new DECIMAL(10, 2),
-    electric_total DECIMAL(10, 2),
-    total_amount DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PAID', 'OVERDUE')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- 5. 👤 สร้าง User: ลูกค้า (รหัส 1234)
+INSERT INTO users (username, password, full_name, role, phone_number)
+VALUES ('user1', '1234', 'ลูกค้าทดสอบ', 'TENANT', '089-999-9999');
+
+-- 6. 🏪 สร้างแผงค้าตัวอย่าง
+INSERT INTO stalls (code, status, zone_name) VALUES 
+('A01', 'AVAILABLE', 'โซนของสด'),
+('A02', 'AVAILABLE', 'โซนเสื้อผ้า');
+
+-- 7. 🔎 (สำคัญ) โชว์ให้ดูหน่อยว่าสร้างเสร็จจริงไหม?
+SELECT username, password, role FROM users;
