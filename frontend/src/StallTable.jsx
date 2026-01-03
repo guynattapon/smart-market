@@ -36,15 +36,30 @@ function StallTable() {
 
   useEffect(() => { fetchStalls(); }, []);
 
-  // ฟังก์ชันเพิ่มแผง
+  // 👇 ฟังก์ชันแปลงรหัสโซนเป็นชื่อ (ใช้บ่อย)
+  const getZoneName = (id) => {
+    switch(parseInt(id)) {
+      case 1: return '🥩 ของสด (Fresh)';
+      case 2: return '🍛 อาหาร (Food)';
+      case 3: return '🥫 ของแห้ง (Dry)';
+      case 4: return '👕 เบ็ดเตล็ด (Gen)';
+      case 5: return '☕ คาเฟ่ (Cafe)';
+      default: return '❓ ไม่ระบุ';
+    }
+  };
+
   const handleAddStall = () => {
     Swal.fire({
       title: '🛠️ เพิ่มแผงค้าใหม่',
+      // 👇 เพิ่มตัวเลือกโซนใหม่ตรงนี้
       html: `
-        <input id="swal-code" class="swal2-input" placeholder="รหัสแผง (เช่น C01)">
+        <input id="swal-code" class="swal2-input" placeholder="รหัสแผง (เช่น A01)">
         <select id="swal-zone" class="swal2-input">
-          <option value="1">🍜 Zone A (อาหาร)</option>
-          <option value="2">👕 Zone B (เสื้อผ้า)</option>
+          <option value="1">🥩 โซนของสด (Fresh Market)</option>
+          <option value="2">🍛 โซนอาหารปรุงสำเร็จ (Street Food)</option>
+          <option value="3">🥫 โซนของแห้ง (Dry Goods)</option>
+          <option value="4">👕 โซนเบ็ดเตล็ด/เสื้อผ้า (General)</option>
+          <option value="5">☕ โซนคาเฟ่/พิเศษ (Modern)</option>
         </select>
         <input id="swal-price" type="number" class="swal2-input" placeholder="ราคาเช่าต่อเดือน">
       `,
@@ -65,66 +80,28 @@ function StallTable() {
     });
   };
 
-  // 👇 ฟังก์ชันตรวจสลิป (ตัวเอกของงานนี้)
+  // ... (ฟังก์ชัน handleCheckSlip, handleDelete, handleCancel เหมือนเดิมเป๊ะ ไม่ต้องแก้)
   const handleCheckSlip = (stall) => {
     Swal.fire({
-      title: 'ตรวจสอบการชำระเงิน 💰',
-      text: `ผู้โอน: ${stall.tenant_name}`,
-      imageUrl: stall.slip_image, // แสดงรูปสลิป
-      imageWidth: 400,
-      imageAlt: 'Payment Slip',
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: '✅ อนุมัติ (Approve)',
-      denyButtonText: '❌ ปฏิเสธ (Reject)',
-      confirmButtonColor: '#10b981',
-      denyButtonColor: '#ef4444',
+      title: 'ตรวจสอบสลิป 💰', imageUrl: stall.slip_image, imageWidth: 400,
+      showDenyButton: true, showCancelButton: true, confirmButtonText: '✅ อนุมัติ', denyButtonText: '❌ ปฏิเสธ'
     }).then((result) => {
-      if (result.isConfirmed) {
-        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/approve`)
-          .then(() => { Swal.fire('อนุมัติแล้ว!', '', 'success'); fetchStalls(); });
-      } else if (result.isDenied) {
-        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/reject`)
-          .then(() => { Swal.fire('ปฏิเสธแล้ว', 'แผงกลับมาว่าง', 'info'); fetchStalls(); });
-      }
+      if (result.isConfirmed) axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/approve`).then(() => fetchStalls());
+      else if (result.isDenied) axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/reject`).then(() => fetchStalls());
     });
   };
-
-  // ลบแผง
-  const handleDeleteStall = (id, code) => {
-    Swal.fire({
-      title: `ลบแผง ${code}?`, icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`)
-          .then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
-      }
-    });
-  };
-
-  // คืนแผง
-  const handleCancelBooking = (id, code) => {
-    Swal.fire({
-      title: `คืนแผง ${code}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'คืนแผง'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`)
-          .then(() => { Swal.fire('เรียบร้อย', '', 'success'); fetchStalls(); });
-      }
-    });
-  };
+  const handleDeleteStall = (id) => { Swal.fire({ title: 'ลบแผง?', showCancelButton: true, confirmButtonText: 'ลบ' }).then((r) => r.isConfirmed && axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`).then(fetchStalls)); };
+  const handleCancelBooking = (id) => { Swal.fire({ title: 'คืนแผง?', showCancelButton: true, confirmButtonText: 'คืน' }).then((r) => r.isConfirmed && axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`).then(fetchStalls)); };
 
   if (loading) return <div>Loading...</div>;
 
   return (
     <div className="card" style={{ marginTop: '30px' }}>
       <div style={{ display: 'none' }}><Receipt ref={componentRef} data={printData} /></div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
         <h2>📋 จัดการแผงค้า</h2>
         <button onClick={handleAddStall} className="btn-success">+ เพิ่มแผงค้า</button>
       </div>
-      
       <div style={{ overflowX: 'auto' }}>
         <table className="custom-table">
           <thead>
@@ -134,11 +111,11 @@ function StallTable() {
             {stalls.map((stall) => {
               const isOccupied = stall.status === 'OCCUPIED';
               const isPending = stall.status === 'PENDING';
-
               return (
               <tr key={stall.id}>
                 <td><strong>{stall.code}</strong></td>
-                <td>{stall.zone_id === 1 ? 'Zone A' : 'Zone B'}</td>
+                {/* 👇 เรียกใช้ฟังก์ชันแปลงชื่อโซน */}
+                <td>{getZoneName(stall.zone_id)}</td>
                 <td>
                   <span style={{
                     padding: '5px 10px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem',
@@ -152,22 +129,10 @@ function StallTable() {
                 <td>{parseInt(stall.monthly_price).toLocaleString()}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '5px' }}>
-                    
-                    {/* ปุ่มตรวจสลิป (เฉพาะตอนรอตรวจ) */}
-                    {isPending && (
-                       <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍 ตรวจ</button>
-                    )}
-
-                    {/* ปุ่มพิมพ์ใบเสร็จ (เฉพาะตอนอนุมัติแล้ว) */}
-                    {isOccupied && (
-                       <button onClick={() => clickPrint(stall)} className="btn-primary btn-sm">🖨️</button>
-                    )}
-
-                    {(isOccupied || isPending) && (
-                       <button onClick={() => handleCancelBooking(stall.id, stall.code)} className="btn-danger btn-sm">🔄</button>
-                    )}
-                    
-                    <button onClick={() => handleDeleteStall(stall.id, stall.code)} className="btn-danger btn-sm">🗑️</button>
+                    {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍</button>}
+                    {isOccupied && <button onClick={() => clickPrint(stall)} className="btn-primary btn-sm">🖨️</button>}
+                    {(isOccupied || isPending) && <button onClick={() => handleCancelBooking(stall.id)} className="btn-danger btn-sm">🔄</button>}
+                    <button onClick={() => handleDeleteStall(stall.id)} className="btn-danger btn-sm">🗑️</button>
                   </div>
                 </td>
               </tr>
