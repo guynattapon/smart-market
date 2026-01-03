@@ -11,7 +11,25 @@ app.use(cors());
 // ⚠️ สำคัญ: เพิ่มขนาดให้รับรูปภาพใหญ่ๆ ได้ (ป้องกัน Error Payload too large)
 app.use(bodyParser.json({ limit: '10mb' })); 
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+// 📊 Dashboard Stats (แก้บั๊กจอขาว: เติม incomeTypes กลับมา)
+app.get('/admin/stats', async (req, res) => {
+  try {
+    const statusResult = await pool.query("SELECT status, COUNT(*) FROM stalls GROUP BY status");
+    const incomeResult = await pool.query("SELECT SUM(monthly_price) FROM stalls WHERE status = 'OCCUPIED'");
+    const totalIncome = parseInt(incomeResult.rows[0].sum || 0);
 
+    res.json({
+      totalIncome: totalIncome,
+      stallStats: statusResult.rows,
+      // 👇 ส่วนที่ขาดหายไป (เพิ่มกลับมาแล้ว กราฟจะหายป่วยทันที)
+      incomeTypes: { 
+        rent: totalIncome,
+        water: totalIncome * 0.1, // สมมติค่าน้ำ 10%
+        electric: totalIncome * 0.2 // สมมติค่าไฟ 20%
+      }
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
