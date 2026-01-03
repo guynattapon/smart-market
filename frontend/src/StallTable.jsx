@@ -1,10 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useReactToPrint } from 'react-to-print';
+import { Receipt } from './Receipt';
 
 function StallTable() {
   const [stalls, setStalls] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // 🖨️ เตรียมตัวแปรสำหรับพิมพ์
+  const componentRef = useRef();
+  const [printData, setPrintData] = useState(null);
+
+  const handlePrint = useReactToPrint({
+    content: () => componentRef.current,
+    documentTitle: 'SmartMarket-Receipt',
+  });
+
+  const clickPrint = (stall) => {
+    setPrintData(stall);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
 
   const fetchStalls = () => {
     setLoading(true);
@@ -81,6 +99,10 @@ function StallTable() {
 
   return (
     <div className="card" style={{ marginTop: '30px' }}>
+      
+      {/* ซ่อนใบเสร็จไว้ตรงนี้ */}
+      <Receipt ref={componentRef} data={printData} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
         <h2 style={{margin:0}}>📋 รายชื่อแผงค้า ({stalls.length})</h2>
         <button onClick={handleAddStall} className="btn-success">
@@ -120,6 +142,15 @@ function StallTable() {
                 <td style={{fontWeight:'bold', color: '#1f2937'}}>฿{parseInt(stall.monthly_price).toLocaleString()}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    
+                    {/* ปุ่มพิมพ์ใบเสร็จ */}
+                    {isOccupied && (
+                       <button onClick={() => clickPrint(stall)}
+                          className="btn-primary btn-sm" title="พิมพ์ใบเสร็จ" style={{padding:'8px', backgroundColor:'#3b82f6'}}>
+                          🖨️
+                       </button>
+                    )}
+
                     {isOccupied && (
                         <button onClick={() => handleCancelBooking(stall.id, stall.code, stall.tenant_name)}
                             className="btn-warning btn-sm" title="คืนแผง" style={{padding:'8px'}}>
@@ -140,4 +171,5 @@ function StallTable() {
     </div>
   );
 }
+
 export default StallTable;
