@@ -6,7 +6,7 @@ function StallTable() {
   const [stalls, setStalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ฟังก์ชันโหลดข้อมูล (ใช้บ่อย เลยแยกออกมา)
+  // ฟังก์ชันโหลดข้อมูล
   const fetchStalls = () => {
     setLoading(true);
     axios.get('https://smart-market-h5xu.onrender.com/stalls')
@@ -24,7 +24,7 @@ function StallTable() {
     fetchStalls();
   }, []);
 
-  // ➕ ฟังก์ชันเพิ่มแผงค้า (เด้ง Popup ให้กรอก)
+  // ➕ ฟังก์ชันเพิ่มแผงค้า
   const handleAddStall = () => {
     Swal.fire({
       title: '🛠️ เพิ่มแผงค้าใหม่',
@@ -51,36 +51,57 @@ function StallTable() {
       if (result.isConfirmed) {
         const { code, zone_id, monthly_price } = result.value;
         if (!code || !monthly_price) {
-          Swal.fire('กรอกไม่ครบ!', 'กรุณาระบุรหัสแผงและราคา', 'error');
-          return;
+            Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกให้ครบทุกช่อง', 'error');
+            return;
         }
-        // ส่งข้อมูลไป Server
         axios.post('https://smart-market-h5xu.onrender.com/stalls/add', { code, zone_id, monthly_price })
           .then(() => {
             Swal.fire('สำเร็จ', 'เพิ่มแผงค้าเรียบร้อย', 'success');
-            fetchStalls(); // โหลดตารางใหม่
+            fetchStalls();
           })
           .catch(err => Swal.fire('Error', err.message, 'error'));
       }
     });
   };
 
-  // 🗑️ ฟังก์ชันลบแผงค้า
+  // 🔄 ฟังก์ชันยกเลิกจอง (เตะคนเช่าออก)
+  const handleCancelBooking = (id, code, tenantName) => {
+    Swal.fire({
+      title: `ยกเลิกจองแผง ${code}?`,
+      text: `คุณต้องการยกเลิกสิทธิ์ของ "${tenantName}" ใช่ไหม? แผงจะกลับมาว่างทันที`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      confirmButtonText: 'ใช่ ยกเลิกจอง!',
+      cancelButtonText: 'ไม่ทำ'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`)
+          .then(() => {
+            Swal.fire('เรียบร้อย', 'แผงกลับมาว่างแล้ว', 'success');
+            fetchStalls();
+          })
+          .catch(err => Swal.fire('Error', 'ทำรายการไม่สำเร็จ', 'error'));
+      }
+    });
+  };
+
+  // 🗑️ ฟังก์ชันลบแผงทิ้ง
   const handleDeleteStall = (id, code) => {
     Swal.fire({
-      title: `ลบแผง ${code} ไหม?`,
-      text: "ลบแล้วกู้คืนไม่ได้นะ!",
-      icon: 'warning',
+      title: `ลบแผง ${code} ถาวร?`,
+      text: "ข้อมูลจะหายไปเลย กู้คืนไม่ได้นะ!",
+      icon: 'error',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       confirmButtonText: 'ลบเลย!',
-      cancelButtonText: 'เก็บไว้ก่อน'
+      cancelButtonText: 'เก็บไว้'
     }).then((result) => {
       if (result.isConfirmed) {
         axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`)
           .then(() => {
             Swal.fire('ลบแล้ว!', 'แผงค้าถูกลบออกจากระบบ', 'success');
-            fetchStalls(); // โหลดตารางใหม่
+            fetchStalls();
           })
           .catch(err => Swal.fire('Error', 'ลบไม่สำเร็จ', 'error'));
       }
@@ -92,30 +113,32 @@ function StallTable() {
   return (
     <div className="card" style={{ marginTop: '20px', padding: '20px' }}>
       
-      {/* หัวตาราง + ปุ่มเพิ่ม */}
+      {/* ส่วนหัวตาราง */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h3>📋 รายชื่อแผงค้าทั้งหมด ({stalls.length} แผง)</h3>
-        <button onClick={handleAddStall} style={{ backgroundColor: '#10b981', color: 'white', padding: '10px 20px' }}>
+        <h3>📋 รายชื่อแผงค้า ({stalls.length})</h3>
+        <button onClick={handleAddStall} style={{ backgroundColor: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer' }}>
           + เพิ่มแผงค้า
         </button>
       </div>
       
+      {/* ตารางข้อมูล */}
       <div style={{ overflowX: 'auto' }}>
         <table className="custom-table">
           <thead>
             <tr>
-              <th>รหัสแผง</th>
+              <th>รหัส</th>
               <th>โซน</th>
               <th>สถานะ</th>
-              <th>ราคา/เดือน</th>
-              <th>จัดการ</th> {/* เพิ่มช่องปุ่มลบ */}
+              <th>ผู้เช่า</th> {/* 👤 คอลัมน์ใหม่ */}
+              <th>ราคา</th>
+              <th>จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {stalls.map((stall) => (
               <tr key={stall.id}>
                 <td><strong>{stall.code}</strong></td>
-                <td>{stall.zone_id === 1 ? 'Zone A (อาหาร)' : 'Zone B (เสื้อผ้า)'}</td>
+                <td>{stall.zone_id === 1 ? 'Zone A' : 'Zone B'}</td>
                 <td>
                   <span style={{
                     padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold',
@@ -125,15 +148,36 @@ function StallTable() {
                     {stall.status === 'VACANT' ? 'ว่าง' : 'ไม่ว่าง'}
                   </span>
                 </td>
+                
+                {/* 👤 แสดงชื่อคนเช่า (ถ้าไม่มีขีด -) */}
+                <td style={{ color: '#2563eb', fontWeight: '500' }}>
+                   {stall.tenant_name ? `👤 ${stall.tenant_name}` : '-'}
+                </td>
+                
                 <td>฿{parseInt(stall.monthly_price).toLocaleString()}</td>
+                
                 <td>
-                  {/* ปุ่มลบ */}
-                  <button 
-                    onClick={() => handleDeleteStall(stall.id, stall.code)}
-                    style={{ backgroundColor: '#ef4444', color: 'white', padding: '5px 10px', fontSize: '0.8rem' }}
-                  >
-                    🗑️ ลบ
-                  </button>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    {/* ปุ่มยกเลิกจอง (โชว์เฉพาะตอนไม่ว่าง) */}
+                    {stall.status === 'OCCUPIED' && (
+                        <button 
+                            onClick={() => handleCancelBooking(stall.id, stall.code, stall.tenant_name)}
+                            style={{ backgroundColor: '#f59e0b', color: 'white', padding: '5px 10px', fontSize: '0.8rem', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                            title="ยกเลิกการจอง (คืนสถานะว่าง)"
+                        >
+                            🔄 คืนแผง
+                        </button>
+                    )}
+                    
+                    {/* ปุ่มลบแผง */}
+                    <button 
+                        onClick={() => handleDeleteStall(stall.id, stall.code)}
+                        style={{ backgroundColor: '#ef4444', color: 'white', padding: '5px 10px', fontSize: '0.8rem', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                        title="ลบแผงทิ้ง"
+                    >
+                        🗑️ ลบ
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

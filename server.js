@@ -47,14 +47,11 @@ app.post('/register', async (req, res) => {
 });
 
 // ==========================================
-// 📊 2. ระบบ Dashboard (กราฟสถิติ) **ตัวที่ขาดไป**
+// 📊 2. ระบบ Dashboard (กราฟสถิติ)
 // ==========================================
 app.get('/admin/stats', async (req, res) => {
   try {
-    // ดึงจำนวนแผงว่าง/ไม่ว่าง
     const statusResult = await pool.query("SELECT status, COUNT(*) FROM stalls GROUP BY status");
-    
-    // ดึงรายได้รวม (สมมติคำนวณจากแผงที่ไม่ว่าง)
     const incomeResult = await pool.query("SELECT SUM(monthly_price) FROM stalls WHERE status = 'OCCUPIED'");
     const totalIncome = incomeResult.rows[0].sum || 0;
 
@@ -62,36 +59,35 @@ app.get('/admin/stats', async (req, res) => {
       totalIncome: totalIncome,
       stallStats: statusResult.rows,
       incomeTypes: { 
-        rent: totalIncome,       // ค่าเช่า (ของจริง)
-        water: totalIncome * 0.1, // ค่าน้ำ (สมมติ 10%)
-        electric: totalIncome * 0.2 // ค่าไฟ (สมมติ 20%)
+        rent: totalIncome,
+        water: totalIncome * 0.1, 
+        electric: totalIncome * 0.2
       }
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // ==========================================
-// 🛒 3. ระบบแผงค้า (Stalls)
+// 🛒 3. ระบบจัดการแผงค้า (Stalls Management)
 // ==========================================
+
+// 🟢 ดึงข้อมูลแผงค้า (พร้อมชื่อคนเช่า)
 app.get('/stalls', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM stalls ORDER BY id ASC');
+    const result = await pool.query(`
+      SELECT stalls.*, users.full_name AS tenant_name 
+      FROM stalls 
+      LEFT JOIN users ON stalls.tenant_id = users.id 
+      ORDER BY stalls.id ASC
+    `);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-app.post('/book', async (req, res) => {
-  const { stall_id, user_id } = req.body;
-  try {
-    await pool.query("UPDATE stalls SET status = 'OCCUPIED', tenant_id = $1 WHERE id = $2", [user_id, stall_id]);
-    res.json({ message: 'จองสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
 // ➕ เพิ่มแผงค้าใหม่
 app.post('/stalls/add', async (req, res) => {
   const { code, zone_id, monthly_price } = req.body;
   try {
-    // บังคับให้ status เริ่มต้นเป็น 'VACANT' (ว่าง) เสมอ
     await pool.query(
       "INSERT INTO stalls (code, zone_id, status, monthly_price) VALUES ($1, $2, 'VACANT', $3)",
       [code, zone_id, monthly_price]
@@ -100,7 +96,25 @@ app.post('/stalls/add', async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// 🗑️ ลบแผงค้า
+// 📝 จองแผง (สำหรับลูกค้า)
+app.post('/book', async (req, res) => {
+  const { stall_id, user_id } = req.body;
+  try {
+    await pool.query("UPDATE stalls SET status = 'OCCUPIED', tenant_id = $1 WHERE id = $2", [user_id, stall_id]);
+    res.json({ message: 'จองสำเร็จ' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// 🚫 ยกเลิกการจอง (Reset แผงให้ว่าง)
+app.put('/stalls/:id/cancel', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL WHERE id = $1", [id]);
+    res.json({ message: 'ยกเลิกการจองสำเร็จ' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// 🗑️ ลบแผงค้าทิ้ง
 app.delete('/stalls/:id', async (req, res) => {
   const { id } = req.params;
   try {
