@@ -1,95 +1,36 @@
-/* 1. นำเข้าฟอนต์ Kanit จาก Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap');
-
-/* 2. ตั้งค่าพื้นฐานทั้งเว็บ */
+/* กำหนดตัวแปรสี (แก้ไขที่นี่ เปลี่ยนทั้งเว็บ) */
 :root {
-  font-family: 'Kanit', sans-serif; /* บังคับใช้ฟอนต์นี้ทั้งเว็บ */
-  line-height: 1.5;
-  font-weight: 400;
-  
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #f0f2f5; /* พื้นหลังสีเทาอ่อน สบายตา */
+  --primary: #2563eb;    /* สีน้ำเงินหลัก (ปุ่ม, หัวข้อ) */
+  --secondary: #64748b;  /* สีเทารอง (ข้อความทั่วไป) */
+  --success: #10b981;    /* สีเขียว (ว่าง, สำเร็จ) */
+  --danger: #ef4444;     /* สีแดง (ไม่ว่าง, ลบ, ออกจากระบบ) */
+  --warning: #f59e0b;    /* สีส้ม (คืนแผง) */
+  --bg-light: #f3f4f6;   /* สีพื้นหลังเว็บ */
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* เงาสวยๆ */
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  font-family: 'Prompt', sans-serif; /* ใช้ฟอนต์ที่เพิ่งโหลดมา */
+  background-color: var(--bg-light);
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
 }
 
-/* 3. ตกแต่งปุ่มกด (Button) ให้สวยหรู */
-button {
-  border-radius: 30px !important; /* ปุ่มกลมมน */
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 600 !important;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: all 0.25s; /* เอฟเฟกต์สมูท */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* เงาปุ่ม */
+/* ปรับแต่ง SweetAlert2 ให้เข้าธีม */
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm {
+    background-color: var(--primary) !important;
+    border-radius: 10px !important;
 }
-
-button:hover {
-  transform: translateY(-2px); /* ลอยขึ้นนิดนึงตอนชี้ */
-  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2); /* เงาเข้มขึ้น */
-  border-color: #646cff;
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel {
+    border-radius: 10px !important;
 }
-
-button:active {
-  transform: translateY(0); /* กดยุบลงไป */
-}
-
-/* 4. ตกแต่งกล่องต่างๆ (Card) */
-div[style*="border"], .dashboard-container {
-  background: white;
-  border-radius: 16px !important; /* มุมโค้งมน */
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05) !important; /* เงาฟุ้งๆ ดูแพง */
-  border: none !important; /* เอาเส้นขอบแข็งๆ ออก */
-  color: #333; /* ตัวหนังสือสีเข้ม */
-}
-
-/* จัดหัวข้อให้เด่น */
-h1, h2, h3 {
-  color: #2c3e50;
-  font-weight: 600;
-}
-/* ...โค้ดเก่า... */
-
-/* ตกแต่งตาราง */
-.custom-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-
-.custom-table th, .custom-table td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-}
-
-.custom-table th {
-  background-color: #f8f9fa;
-  color: #333;
-  font-weight: 600;
-}
-
-/* ทำแถบสีสลับลายม้าลาย (Zebra Striping) อ่านง่าย */
-.custom-table tr:nth-child(even) {
-  background-color: #f9f9f9;
-}
-
-.custom-table tr:hover {
-  background-color: #eef2f7; /* เอาเมาส์ชี้แล้วเปลี่ยนสี */
-  transition: 0.2s;
+.swal2-popup {
+    border-radius: 20px !important;
 }

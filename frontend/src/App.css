@@ -1,148 +1,88 @@
-html, body, #root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  display: block; /* บังคับให้เป็นบล็อกเต็มจอ */
-}
- /*1. ตั้งค่าพื้นฐานและฟอนต์ */
-:root {
-  --primary-color: #2563eb; /* สีฟ้าน้ำเงิน */
-  --success-color: #10b981; /* สีเขียว */
-  --danger-color: #ef4444;  /* สีแดง */
-  --bg-color: #f3f4f6;      /* สีพื้นหลังเทาอ่อน */
-  --card-bg: #ffffff;       /* สีพื้นการ์ด */
-  --text-main: #1f2937;     /* สีตัวหนังสือเข้ม */
-}
-
-body {
-  margin: 0;
-  font-family: 'Prompt', sans-serif; /* ใช้ฟอนต์ Prompt */
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* 2. จัดระเบียบ Container หลัก */
+/* คอนเทนเนอร์หลัก จัดให้อยู่ตรงกลาง */
 .container {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 40px auto;
-  padding: 30px;
-  background-color: var(--card-bg);
-  border-radius: 16px; /* มุมโค้ง */
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* เงาฟุ้งๆ */
+  padding: 0 25px;
 }
 
-/* 3. หัวข้อ (Header) */
-h1 {
-  color: var(--primary-color);
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-
-h2 {
-  font-size: 1.2rem;
-  color: #4b5563;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 10px;
-  margin-top: 30px;
-}
-
-/* 4. แต่งปุ่มกด (Button) ให้ดูนุ่มนวล */
-button {
-  font-family: 'Prompt', sans-serif;
-  font-weight: 500;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-button:hover {
-  transform: translateY(-2px); /* ลอยขึ้นนิดนึงตอนชี้ */
-  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
-}
-
-button:active {
-  transform: translateY(0);
-}
-
-/* ปุ่ม Logout */
-.btn-logout {
-  background-color: var(--danger-color) !important;
-}
-
-/* ปุ่มแจ้งโอน */
-.btn-pay {
-  background-color: var(--primary-color) !important;
-}
-
-/* 5. แต่งช่องกรอกข้อมูล (Input) */
-input {
-  width: 100%;
-  padding: 12px;
-  margin: 8px 0;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-family: 'Prompt', sans-serif;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-  box-sizing: border-box; /* ไม่ให้ล้นกรอบ */
-}
-
-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-/* 6. ตาราง (Table) สไตล์ Modern */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
+/* การ์ดสีขาว โค้งมน มีเงา */
+.card, .dashboard-card {
   background: white;
-  border-radius: 8px;
-  overflow: hidden; /* ตัดมุมโค้ง */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border-radius: 20px; /* มุมโค้ง */
+  padding: 30px;
+  box-shadow: var(--card-shadow); /* มีมิติ */
+  transition: transform 0.3s ease;
+  border: 1px solid #e5e7eb;
+}
+.dashboard-card:hover {
+    transform: translateY(-5px); /* ขยับขึ้นนิดนึงตอนเอาเมาส์ชี้ */
 }
 
-th {
-  background-color: #f9fafb;
-  color: #6b7280;
+/* สไตล์หัวข้อ */
+h1, h2, h3 {
+  color: #111827;
+  font-weight: 700;
+}
+
+/* ปุ่มทั่วไป */
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-family: 'Prompt', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+button:hover { opacity: 0.9; transform: scale(1.02); }
+button:active { transform: scale(0.98); }
+
+/* ปุ่มสีต่างๆ */
+.btn-primary { background-color: var(--primary); color: white; }
+.btn-success { background-color: var(--success); color: white; }
+.btn-danger { background-color: var(--danger); color: white; }
+.btn-warning { background-color: var(--warning); color: white; }
+
+/* ปุ่มเล็กในตาราง */
+.btn-sm {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+}
+
+/* ตารางสวยงาม */
+.custom-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px; /* เว้นระยะระหว่างแถว */
+  margin-top: 10px;
+}
+.custom-table th {
+  text-align: left;
+  padding: 15px;
+  color: var(--secondary);
   font-weight: 600;
   text-transform: uppercase;
   font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+.custom-table tbody tr {
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border-radius: 12px;
+  transition: transform 0.2s;
+}
+.custom-table tbody tr:hover {
+    transform: scale(1.01); /* ขยายแถวตอนชี้ */
+}
+.custom-table td {
   padding: 15px;
-  text-align: left;
+  vertical-align: middle;
 }
-
-td {
-  padding: 15px;
-  border-bottom: 1px solid #f3f4f6;
-  color: #374151;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-/* 7. แผนที่ (Map Area) */
-.map-container {
-  background-image: radial-gradient(#cbd5e1 1px, transparent 1px); /* ลายจุดพื้นหลัง */
-  background-size: 20px 20px;
-  background-color: #f8fafc !important; /* ทับสีเดิม */
-  border: 2px dashed #cbd5e1 !important; /* เส้นประ */
-}
-
-.stall-box {
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.stall-box:hover {
-  transform: scale(1.1); /* ขยายใหญ่เมื่อชี้ */
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2) !important;
-  z-index: 10;
-}
+.custom-table td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+.custom-table td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
