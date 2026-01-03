@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'; // 👈 อย่าลืม useEffect, useRef
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { useReactToPrint } from 'react-to-print';
@@ -8,28 +8,23 @@ function StallTable() {
   const [stalls, setStalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🖨️ เตรียมตัวแปรสำหรับพิมพ์
+  // Print Logic
   const componentRef = useRef();
   const [printData, setPrintData] = useState(null);
-  const [printTrigger, setPrintTrigger] = useState(0); // 👈 ตัวช่วยตัวใหม่: ตัวกระตุ้นการพิมพ์
+  const [printTrigger, setPrintTrigger] = useState(0);
 
-  // คำสั่งพิมพ์ (เชื่อมกับ Ref)
   const handlePrint = useReactToPrint({
-    contentRef: componentRef, // ใช้ contentRef แทน content (สำหรับ v3 ขึ้นไป) หรือ content: () => componentRef.current ก็ได้
+    contentRef: componentRef,
     documentTitle: 'SmartMarket-Receipt',
   });
 
-  // 👀 เฝ้าดู: เมื่อ "ตัวกระตุ้น" เปลี่ยนค่า -> ให้สั่งพิมพ์ทันที
   useEffect(() => {
-    if (printTrigger > 0 && printData) {
-      handlePrint();
-    }
-  }, [printTrigger, printData]); // ทำงานเมื่อ trigger เปลี่ยน
+    if (printTrigger > 0 && printData) handlePrint();
+  }, [printTrigger, printData]);
 
-  // ฟังก์ชันเมื่อกดปุ่ม (แค่ส่งข้อมูล + เขย่าตัวกระตุ้น)
   const clickPrint = (stall) => {
-    setPrintData(stall);       // 1. ใส่ข้อมูล
-    setPrintTrigger(Date.now()); // 2. เขย่าตัวกระตุ้น (เปลี่ยนค่าเพื่อให้ useEffect ทำงาน)
+    setPrintData(stall);
+    setPrintTrigger(Date.now());
   };
 
   const fetchStalls = () => {
@@ -41,81 +36,138 @@ function StallTable() {
 
   useEffect(() => { fetchStalls(); }, []);
 
-  // ... (ฟังก์ชัน Add/Cancel/Delete เหมือนเดิม ไม่ต้องแก้) ...
-  const handleAddStall = () => { /* ...โค้ดเดิม... */ };
-  const handleCancelBooking = (id, code, tenantName) => { /* ...โค้ดเดิม... */ };
-  const handleDeleteStall = (id, code) => { /* ...โค้ดเดิม... */ };
+  // ฟังก์ชันเพิ่มแผง
+  const handleAddStall = () => {
+    Swal.fire({
+      title: '🛠️ เพิ่มแผงค้าใหม่',
+      html: `
+        <input id="swal-code" class="swal2-input" placeholder="รหัสแผง (เช่น C01)">
+        <select id="swal-zone" class="swal2-input">
+          <option value="1">🍜 Zone A (อาหาร)</option>
+          <option value="2">👕 Zone B (เสื้อผ้า)</option>
+        </select>
+        <input id="swal-price" type="number" class="swal2-input" placeholder="ราคาเช่าต่อเดือน">
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'บันทึก',
+      preConfirm: () => {
+        return {
+          code: document.getElementById('swal-code').value,
+          zone_id: document.getElementById('swal-zone').value,
+          monthly_price: document.getElementById('swal-price').value
+        }
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.post('https://smart-market-h5xu.onrender.com/stalls/add', result.value)
+          .then(() => { Swal.fire('สำเร็จ', 'เพิ่มแผงค้าเรียบร้อย', 'success'); fetchStalls(); });
+      }
+    });
+  };
 
-  if (loading) return <div style={{textAlign: 'center', padding:'50px', color: 'var(--secondary)'}}>⏳ กำลังโหลด...</div>;
+  // 👇 ฟังก์ชันตรวจสลิป (ตัวเอกของงานนี้)
+  const handleCheckSlip = (stall) => {
+    Swal.fire({
+      title: 'ตรวจสอบการชำระเงิน 💰',
+      text: `ผู้โอน: ${stall.tenant_name}`,
+      imageUrl: stall.slip_image, // แสดงรูปสลิป
+      imageWidth: 400,
+      imageAlt: 'Payment Slip',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: '✅ อนุมัติ (Approve)',
+      denyButtonText: '❌ ปฏิเสธ (Reject)',
+      confirmButtonColor: '#10b981',
+      denyButtonColor: '#ef4444',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/approve`)
+          .then(() => { Swal.fire('อนุมัติแล้ว!', '', 'success'); fetchStalls(); });
+      } else if (result.isDenied) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/reject`)
+          .then(() => { Swal.fire('ปฏิเสธแล้ว', 'แผงกลับมาว่าง', 'info'); fetchStalls(); });
+      }
+    });
+  };
+
+  // ลบแผง
+  const handleDeleteStall = (id, code) => {
+    Swal.fire({
+      title: `ลบแผง ${code}?`, icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`)
+          .then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
+      }
+    });
+  };
+
+  // คืนแผง
+  const handleCancelBooking = (id, code) => {
+    Swal.fire({
+      title: `คืนแผง ${code}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'คืนแผง'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`)
+          .then(() => { Swal.fire('เรียบร้อย', '', 'success'); fetchStalls(); });
+      }
+    });
+  };
+
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className="card" style={{ marginTop: '30px' }}>
-      
-      {/* 🧾 แอบวางใบเสร็จไว้ตรงนี้ (สำคัญ!) */}
-      <div style={{ display: 'none' }}>
-         <Receipt ref={componentRef} data={printData} />
-      </div>
+      <div style={{ display: 'none' }}><Receipt ref={componentRef} data={printData} /></div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <h2 style={{margin:0}}>📋 รายชื่อแผงค้า ({stalls.length})</h2>
-        {/* ... ปุ่มเพิ่มแผง ... */}
-        {/* (ถ้าเพื่อนไม่ได้แก้ส่วนนี้ ก็ใช้โค้ดเดิมได้เลย แต่ผมละไว้ให้สั้นลง) */}
-        <button onClick={() => Swal.fire('ฟังก์ชันนี้เพื่อนมีอยู่แล้ว')} className="btn-success">
-          <span style={{fontSize:'1.2rem'}}>+</span> เพิ่มแผงค้า
-        </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <h2>📋 จัดการแผงค้า</h2>
+        <button onClick={handleAddStall} className="btn-success">+ เพิ่มแผงค้า</button>
       </div>
       
       <div style={{ overflowX: 'auto' }}>
         <table className="custom-table">
           <thead>
-            <tr><th>รหัส</th><th>โซน</th><th>สถานะ</th><th>ผู้เช่า</th><th>ราคา/เดือน</th><th style={{textAlign:'center'}}>จัดการ</th></tr>
+            <tr><th>รหัส</th><th>โซน</th><th>สถานะ</th><th>ผู้เช่า</th><th>ราคา</th><th>จัดการ</th></tr>
           </thead>
           <tbody>
             {stalls.map((stall) => {
               const isOccupied = stall.status === 'OCCUPIED';
+              const isPending = stall.status === 'PENDING';
+
               return (
               <tr key={stall.id}>
-                <td><strong style={{fontSize:'1.1rem', color: 'var(--primary)'}}>{stall.code}</strong></td>
-                <td>
-                    <span style={{display:'flex', alignItems:'center', gap:'5px'}}>
-                        {stall.zone_id === 1 ? '🍜 Zone A' : '👕 Zone B'}
-                    </span>
-                </td>
+                <td><strong>{stall.code}</strong></td>
+                <td>{stall.zone_id === 1 ? 'Zone A' : 'Zone B'}</td>
                 <td>
                   <span style={{
-                    padding: '6px 12px', borderRadius: '30px', fontSize: '0.85rem', fontWeight: '700',
-                    backgroundColor: isOccupied ? '#fef2f2' : '#ecfdf5',
-                    color: isOccupied ? 'var(--danger)' : 'var(--success)',
-                    border: `1px solid ${isOccupied ? 'var(--danger)' : 'var(--success)'}`
+                    padding: '5px 10px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem',
+                    backgroundColor: isOccupied ? '#fee2e2' : (isPending ? '#fef3c7' : '#d1fae5'),
+                    color: isOccupied ? '#ef4444' : (isPending ? '#d97706' : '#10b981')
                   }}>
-                    {isOccupied ? '🔴 ไม่ว่าง' : '🟢 ว่าง'}
+                    {isOccupied ? '🔴 ไม่ว่าง' : (isPending ? '🟡 รอตรวจ' : '🟢 ว่าง')}
                   </span>
                 </td>
-                <td style={{ fontWeight: '500', color: isOccupied ? '#1f2937' : 'var(--secondary)' }}>
-                   {stall.tenant_name ? `👤 ${stall.tenant_name}` : '-'}
-                </td>
-                <td style={{fontWeight:'bold', color: '#1f2937'}}>฿{parseInt(stall.monthly_price).toLocaleString()}</td>
+                <td>{stall.tenant_name || '-'}</td>
+                <td>{parseInt(stall.monthly_price).toLocaleString()}</td>
                 <td>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', gap: '5px' }}>
                     
-                    {/* 👇 ปุ่มพิมพ์ใบเสร็จ (พระเอกของเรา) */}
-                    {isOccupied && (
-                       <button onClick={() => clickPrint(stall)}
-                          className="btn-primary btn-sm" title="พิมพ์ใบเสร็จ" style={{padding:'8px', backgroundColor:'#3b82f6'}}>
-                          🖨️
-                       </button>
+                    {/* ปุ่มตรวจสลิป (เฉพาะตอนรอตรวจ) */}
+                    {isPending && (
+                       <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍 ตรวจ</button>
                     )}
 
+                    {/* ปุ่มพิมพ์ใบเสร็จ (เฉพาะตอนอนุมัติแล้ว) */}
                     {isOccupied && (
-                        <button onClick={() => handleCancelBooking(stall.id, stall.code, stall.tenant_name)}
-                            className="btn-warning btn-sm" title="คืนแผง" style={{padding:'8px'}}>
-                            🔄
-                        </button>
+                       <button onClick={() => clickPrint(stall)} className="btn-primary btn-sm">🖨️</button>
                     )}
-                    <button onClick={() => handleDeleteStall(stall.id, stall.code)}
-                        className="btn-danger btn-sm" title="ลบแผง" style={{padding:'8px'}}>
-                        🗑️
-                    </button>
+
+                    {(isOccupied || isPending) && (
+                       <button onClick={() => handleCancelBooking(stall.id, stall.code)} className="btn-danger btn-sm">🔄</button>
+                    )}
+                    
+                    <button onClick={() => handleDeleteStall(stall.id, stall.code)} className="btn-danger btn-sm">🗑️</button>
                   </div>
                 </td>
               </tr>
