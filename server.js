@@ -2,6 +2,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const axios = require('axios'); // ✅ มี axios แล้ว
 require('dotenv').config();
 
 const app = express();
@@ -96,13 +97,12 @@ app.post('/stalls/add', async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// 📝 จองแผง (สำหรับลูกค้า)
 // 📝 จองแผง (เวอร์ชันแจ้งเตือน Discord 👾)
 app.post('/book', async (req, res) => {
   const { stall_id, user_id, stall_code, user_name } = req.body; 
   
-  // 👇 ลิงก์ Webhook ของเพื่อน (ใส่ให้แล้วครับ)
-  const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457018401862979586/WTUy0aqEW6tlfwJxYEec-7ShbfmnGI2mgyY3-5HIXvLoC6j_f9HlhIfw9LmLMKl9o7Ef'; 
+  // 👇 ลิงก์ Discord ของเพื่อน
+  const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
 
   try {
     // 1. อัปเดต Database
@@ -111,11 +111,11 @@ app.post('/book', async (req, res) => {
     // 2. ส่งเข้า Discord
     if (DISCORD_WEBHOOK_URL) {
         const discordMessage = {
-            content: "🚨 **มีรายการจองใหม่จ้า!** @everyone", // @everyone เพื่อแท็กเรียกทุกคน
+            content: "🚨 **มีรายการจองใหม่จ้า!** @everyone",
             embeds: [{
                 title: `🏠 มีลูกค้าจองแผง: ${stall_code}`,
                 description: "รีบเข้าไปตรวจสอบและอนุมัติด้วยนะครับ!",
-                color: 5763719, // สีเขียว
+                color: 5763719,
                 fields: [
                     { name: "👤 ชื่อลูกค้า", value: user_name || "ไม่ระบุชื่อ", inline: true },
                     { name: "💰 สถานะ", value: "รอตรวจสอบ", inline: true },
@@ -125,8 +125,8 @@ app.post('/book', async (req, res) => {
             }]
         };
 
-        await axios.post(DISCORD_WEBHOOK_URL, discordMessage)
-             .catch(err => console.error("Discord Error:", err.message));
+        // ส่งแบบเงียบๆ ไม่ต้องรอ (Fire & Forget) เพื่อไม่ให้หน้าเว็บค้าง
+        axios.post(DISCORD_WEBHOOK_URL, discordMessage).catch(err => console.error("Discord Error:", err.message));
     }
 
     res.json({ message: 'จองสำเร็จ' });
@@ -135,4 +135,24 @@ app.post('/book', async (req, res) => {
     res.status(500).json({ message: err.message }); 
   }
 });
+
+// 🚫 ยกเลิกการจอง (Reset แผงให้ว่าง)
+app.put('/stalls/:id/cancel', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL WHERE id = $1", [id]);
+    res.json({ message: 'ยกเลิกการจองสำเร็จ' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// 🗑️ ลบแผงค้าทิ้ง
+app.delete('/stalls/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("DELETE FROM stalls WHERE id = $1", [id]);
+    res.json({ message: 'ลบแผงค้าสำเร็จ' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
