@@ -1,47 +1,50 @@
 import { useState } from 'react';
 import Login from './Login';
 import Dashboard from './Dashboard';
+import MarketMap from './MarketMap'; // 👈 นำเข้าไฟล์ใหม่
 import './App.css'; 
 
 function App() {
-  // 🧠 ส่วนความจำ: จำว่าใคร Login อยู่
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
 
-  // ✅ ฟังก์ชัน: เมื่อ Login สำเร็จ ให้ทำอะไร?
   const handleLogin = (loggedInUser, userToken) => {
-    console.log("Login Success!", loggedInUser);
-    setUser(loggedInUser); // จำข้อมูลคนเข้า
-    setToken(userToken);   // จำกุญแจ
+    setUser(loggedInUser);
+    setToken(userToken);
   };
 
-  // ❌ ฟังก์ชัน: ออกจากระบบ
   const handleLogout = () => {
     setUser(null);
     setToken(null);
   };
 
-  // 🚦 ตัวคุมทิศทาง
-  // ถ้ายังไม่มี User -> โชว์หน้า Login
+  // 1. ถ้ายังไม่ Login -> โชว์หน้า Login
   if (!user) {
     return <Login onLoginSuccess={handleLogin} />;
   }
 
-  // ถ้ามี User แล้ว -> โชว์หน้า Dashboard (ร้านค้า)
+  // 2. ถ้า Login แล้ว -> เช็คว่าเป็นใคร?
   return (
-    <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div>
-           <h1 style={{ margin: 0 }}>Smart Market 🍎</h1>
-           <p style={{ margin: 0, color: '#666' }}>ยินดีต้อนรับ: {user.full_name} ({user.role})</p>
+    <>
+      {/* 👑 ถ้าเป็น ADMIN -> ให้ดู Dashboard (กราฟยอดขาย) */}
+      {user.role === 'ADMIN' ? (
+        <div className="container">
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h1 style={{ margin: 0 }}>Smart Market 🍎</h1>
+              <p style={{ margin: 0, color: '#666' }}>Admin Console</p>
+            </div>
+            <button className="btn-logout" onClick={handleLogout} style={{ backgroundColor: '#ef4444', color: 'white' }}>
+              ออกจากระบบ
+            </button>
+          </div>
+          <Dashboard />
         </div>
-        <button className="btn-logout" onClick={handleLogout} style={{ backgroundColor: '#ef4444', color: 'white' }}>
-          ออกจากระบบ
-        </button>
-      </div>
-
-      <Dashboard />
-    </div>
+      ) : (
+        /* 🛒 ถ้าเป็นลูกค้าทั่วไป -> ให้ดู MarketMap (จองแผง) */
+        <MarketMap user={user} onLogout={handleLogout} />
+      )}
+    </>
   );
 }
 
