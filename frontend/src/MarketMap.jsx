@@ -19,7 +19,7 @@ function MarketMap({ user }) {
     // 1. ให้ลูกค้าเลือกรูปสลิป
     Swal.fire({
       title: `จองแผง ${stall.code}`,
-      text: "กรุณาแนบสลิปโอนเงิน",
+      text: `โซน: ${stall.zone_id === 1 ? 'อาหาร (Zone A)' : 'เสื้อผ้า (Zone B)'}\nกรุณาแนบสลิปโอนเงิน`,
       input: 'file',
       inputAttributes: { 'accept': 'image/*', 'aria-label': 'Upload payment slip' },
       showCancelButton: true,
@@ -42,7 +42,7 @@ function MarketMap({ user }) {
             user_id: user.id,
             stall_code: stall.code,
             user_name: user.full_name,
-            image: base64Image // ส่งรูปไปด้วย
+            image: base64Image
           })
           .then(() => {
             Swal.fire('ส่งหลักฐานแล้ว!', 'รอแอดมินตรวจสอบสักครู่นะครับ', 'success');
@@ -61,21 +61,22 @@ function MarketMap({ user }) {
         🗺️ แผนที่ตลาด (Market Map)
       </h2>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '15px' }}>
+      {/* ส่วนแสดงรายการแผง */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
         {stalls.map((stall) => {
             // เช็คสถานะเพื่อเลือกสี
             let bgColor = '#10b981'; // ว่าง (เขียว)
             let cursor = 'pointer';
-            let title = `ว่าง - ${parseInt(stall.monthly_price).toLocaleString()} บาท`;
+            let statusText = `฿${parseInt(stall.monthly_price).toLocaleString()}`; // ปกติโชว์ราคา
 
             if (stall.status === 'OCCUPIED') {
                 bgColor = '#ef4444'; // ไม่ว่าง (แดง)
                 cursor = 'not-allowed';
-                title = `ไม่ว่าง (จองโดย ${stall.tenant_name})`;
+                statusText = '🔒 จองแล้ว';
             } else if (stall.status === 'PENDING') {
                 bgColor = '#f59e0b'; // รอตรวจ (เหลือง)
                 cursor = 'not-allowed';
-                title = 'รอตรวจสอบสลิป';
+                statusText = '⏳ รอตรวจสอบ';
             }
 
             return (
@@ -85,7 +86,7 @@ function MarketMap({ user }) {
                 style={{
                   backgroundColor: bgColor,
                   color: 'white',
-                  padding: '20px',
+                  padding: '15px',
                   borderRadius: '12px',
                   textAlign: 'center',
                   cursor: cursor,
@@ -95,11 +96,24 @@ function MarketMap({ user }) {
                 }}
                 onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                 onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                title={title}
               >
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{stall.code}</div>
-                <div style={{ fontSize: '0.8rem', marginTop: '5px' }}>
-                    {stall.status === 'VACANT' ? `฿${stall.monthly_price}` : (stall.status === 'PENDING' ? '⏳ รอตรวจ' : '🔒 จองแล้ว')}
+                {/* 1. รหัสแผง */}
+                <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>{stall.code}</div>
+                
+                {/* 2. ✅ เพิ่มชื่อโซนตรงนี้ครับ */}
+                <div style={{ fontSize: '0.9rem', margin: '5px 0', opacity: 0.9 }}>
+                    {stall.zone_id === 1 ? '🍜 Zone A' : '👕 Zone B'}
+                </div>
+
+                {/* 3. ราคา/สถานะ */}
+                <div style={{ 
+                    fontSize: '0.8rem', 
+                    background: 'rgba(0,0,0,0.2)', 
+                    padding: '4px', 
+                    borderRadius: '4px',
+                    marginTop: '5px'
+                }}>
+                    {statusText}
                 </div>
               </div>
             );
@@ -107,9 +121,9 @@ function MarketMap({ user }) {
       </div>
       
       {/* คำอธิบายสี */}
-      <div style={{ marginTop: '30px', display: 'flex', gap: '20px', justifyContent: 'center', fontSize: '0.9rem' }}>
+      <div style={{ marginTop: '30px', display: 'flex', gap: '20px', justifyContent: 'center', fontSize: '0.9rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: '#10b981', borderRadius: '50%' }}></div> ว่าง
+            <div style={{ width: '15px', height: '15px', background: '#10b981', borderRadius: '50%' }}></div> ว่าง (จองได้)
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <div style={{ width: '15px', height: '15px', background: '#f59e0b', borderRadius: '50%' }}></div> รอตรวจสอบ
