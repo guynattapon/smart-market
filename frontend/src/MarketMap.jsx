@@ -22,38 +22,40 @@ function MarketMap({ user, onLogout }) {
 
   // ฟังก์ชันกดจอง
   const handleBooking = (stall) => {
-    if (stall.status === 'OCCUPIED') {
-      Swal.fire('ไม่ว่างครับ', `แผง ${stall.code} มีคนเช่าไปแล้ว`, 'warning');
+    if (!user) {
+      Swal.fire('กรุณาเข้าสู่ระบบ', 'ต้อง Login ก่อนจองนะจ๊ะ', 'warning');
       return;
     }
 
     Swal.fire({
       title: `ยืนยันจองแผง ${stall.code}?`,
-      text: `ราคาค่าเช่า ฿${parseInt(stall.monthly_price).toLocaleString()}/เดือน`,
+      text: "กดยืนยันเพื่อจองทันที",
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#10b981',
-      cancelButtonColor: '#d33',
-      confirmButtonText: '✅ ยืนยันจองเลย!',
+      confirmButtonText: 'ยืนยันจองเลย!',
       cancelButtonText: 'ยกเลิก'
     }).then((result) => {
       if (result.isConfirmed) {
-        // ยิง API จอง
+        
+        // 👇 แก้ตรงนี้ครับ! (ส่งข้อมูลเพิ่มไปอีก 2 ตัว)
         axios.post('https://smart-market-h5xu.onrender.com/book', {
           stall_id: stall.id,
-          user_id: user.id
+          user_id: user.id,
+          stall_code: stall.code,        // ✅ เพิ่มรหัสแผง
+          user_name: user.full_name      // ✅ เพิ่มชื่อลูกค้า
         })
         .then(() => {
-          Swal.fire('สำเร็จ!', 'จองแผงเรียบร้อย เตรียมขายของได้เลย!', 'success');
-          fetchStalls(); // โหลดข้อมูลใหม่ให้เป็นสีแดงทันที
+          Swal.fire('จองสำเร็จ!', 'ขอบคุณที่ใช้บริการ', 'success');
+          fetchStalls(); // โหลดข้อมูลใหม่
         })
         .catch(err => {
-          Swal.fire('ผิดพลาด', err.response?.data?.message || 'จองไม่สำเร็จ', 'error');
+          Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
         });
+
       }
     });
   };
-
   if (loading) return <div style={{textAlign: 'center', padding: '50px'}}>⏳ กำลังโหลดแผนผังตลาด...</div>;
 
   // แยกโซน (Zone A = id 1, Zone B = id 2)
