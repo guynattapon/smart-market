@@ -87,6 +87,27 @@ app.post('/book', async (req, res) => {
     res.json({ message: 'จองสำเร็จ' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
+// ➕ เพิ่มแผงค้าใหม่
+app.post('/stalls/add', async (req, res) => {
+  const { code, zone_id, monthly_price } = req.body;
+  try {
+    // บังคับให้ status เริ่มต้นเป็น 'VACANT' (ว่าง) เสมอ
+    await pool.query(
+      "INSERT INTO stalls (code, zone_id, status, monthly_price) VALUES ($1, $2, 'VACANT', $3)",
+      [code, zone_id, monthly_price]
+    );
+    res.json({ message: 'เพิ่มแผงค้าสำเร็จ' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// 🗑️ ลบแผงค้า
+app.delete('/stalls/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("DELETE FROM stalls WHERE id = $1", [id]);
+    res.json({ message: 'ลบแผงค้าสำเร็จ' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
