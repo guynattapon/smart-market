@@ -3,10 +3,8 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 
 function Login({ onLoginSuccess }) {
-  // ตัวแปรสลับหน้า (False = Login, True = Register)
   const [isRegister, setIsRegister] = useState(false);
-
-  // ข้อมูลฟอร์ม
+  
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -15,71 +13,109 @@ function Login({ onLoginSuccess }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (isRegister) {
-      // 🟢 โหมดสมัครสมาชิก -> ยิงไปที่ /register
-      axios.post('https://smart-market-h5xu.onrender.com/register', {
-        username,
-        password,
-        full_name: fullName,
-        phone_number: phone
-      })
-      .then(() => {
-        Swal.fire('สำเร็จ!', 'บันทึกข้อมูลลงฐานข้อมูลแล้ว! เข้าสู่ระบบได้เลย', 'success');
-        setIsRegister(false); // เด้งกลับไปหน้า Login
-        setPassword('');      // ล้างรหัสผ่านเพื่อความปลอดภัย
-      })
-      .catch((err) => {
-        Swal.fire('แจ้งเตือน', err.response?.data?.message || 'เกิดข้อผิดพลาด', 'error');
-      });
+    // เลือก URL ตามสถานะ (สมัครสมาชิก หรือ ล็อกอิน)
+    const url = isRegister 
+      ? 'https://smart-market-h5xu.onrender.com/register'
+      : 'https://smart-market-h5xu.onrender.com/login';
+    
+    const payload = isRegister 
+      ? { username, password, full_name: fullName, phone_number: phone }
+      : { username, password };
 
-    } else {
-      // 🔵 โหมดเข้าสู่ระบบ -> ยิงไปที่ /login
-      axios.post('https://smart-market-h5xu.onrender.com/login', { username, password })
+    axios.post(url, payload)
       .then((res) => {
-        const { user, token } = res.data;
-        Swal.fire({
-          icon: 'success',
-          title: 'ยินดีต้อนรับ',
-          text: `สวัสดีคุณ ${user.full_name}`,
-          timer: 1500,
-          showConfirmButton: false
-        });
-        onLoginSuccess(user, token);
+        // ✅ กรณีสำเร็จ
+        if (isRegister) {
+            Swal.fire('สำเร็จ!', 'สมัครสมาชิกแล้ว กรุณาเข้าสู่ระบบ', 'success');
+            setIsRegister(false);
+            setPassword('');
+        } else {
+            const { user, token } = res.data;
+            Swal.fire({
+                icon: 'success',
+                title: 'ยินดีต้อนรับ',
+                text: `สวัสดีคุณ ${user.full_name}`,
+                timer: 1500,
+                showConfirmButton: false
+            });
+            onLoginSuccess(user, token);
+        }
       })
       .catch((err) => {
-        Swal.fire('เข้าไม่ได้', 'ชื่อผู้ใช้หรือรหัสผ่านผิด', 'error');
+        // ❌ กรณี Error (โค้ดส่วนนี้จะช่วยบอกความจริง!)
+        console.error("Login Error:", err);
+        
+        let errorMsg = 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+        let errorTitle = 'แย่แล้ว!';
+
+        // 1. ถ้า Server ตอบกลับมา (เช่น 401, 500)
+        if (err.response) {
+            errorMsg = err.response.data.message || JSON.stringify(err.response.data);
+            if (err.response.status === 404) errorMsg = "ไม่พบ API นี้ (เช็ค URL หลังบ้าน)";
+            if (err.response.status === 500) errorTitle = "Server มีปัญหา (500)";
+        } 
+        // 2. ถ้าติดต่อ Server ไม่ได้เลย (Network Error)
+        else if (err.request) {
+            errorMsg = "ติดต่อ Server ไม่ได้ (Network Error) - Server อาจจะยังไม่ตื่น หรือเน็ตหลุด";
+        } 
+        // 3. Error อื่นๆ
+        else {
+            errorMsg = err.message;
+        }
+
+        Swal.fire({
+            icon: 'error',
+            title: errorTitle,
+            text: errorMsg, // 👈 บรรทัดนี้จะเฉลยว่าทำไมเข้าไม่ได้!
+            footer: 'ลองแคปภาพนี้มาถาม Gemini ได้เลยครับ'
+        });
       });
-    }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '100px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '15px', background: 'white', textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-      <h2 style={{ color: isRegister ? '#2563eb' : '#333' }}>
-        {isRegister ? '📝 สมัครสมาชิกใหม่' : '🔐 เข้าสู่ระบบ'}
-      </h2>
-      
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <input type="text" placeholder="Username (ตั้งภาษาอังกฤษ)" value={username} onChange={e => setUsername(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
+    <div style={{
+      display: 'flex', justifyContent: 'center', alignItems: 'center',
+      minHeight: '100vh', width: '100vw', background: '#f3f4f6',
+      position: 'fixed', top: 0, left: 0
+    }}>
+      <div style={{ 
+        background: 'white', padding: '40px', borderRadius: '20px',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.1)', width: '100%', maxWidth: '450px', textAlign: 'center' 
+      }}>
         
-        <input type="password" placeholder="Password (จำให้ได้นะ)" value={password} onChange={e => setPassword(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
+        <h1 style={{ color: isRegister ? '#2563eb' : '#333', marginBottom: '20px', fontSize: '28px' }}>
+          {isRegister ? '📝 สมัครสมาชิก' : '🔐 เข้าสู่ระบบ'}
+        </h1>
+        
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required 
+            style={{ padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', background: '#f9fafb'}} />
+          
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required 
+            style={{ padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', background: '#f9fafb'}} />
 
-        {isRegister && (
-          <>
-            <input type="text" placeholder="ชื่อ-นามสกุลจริง" value={fullName} onChange={e => setFullName(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            <input type="text" placeholder="เบอร์โทรศัพท์" value={phone} onChange={e => setPhone(e.target.value)} required style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
-          </>
-        )}
+          {isRegister && (
+            <>
+              <input type="text" placeholder="ชื่อ-นามสกุลจริง" value={fullName} onChange={e => setFullName(e.target.value)} required style={{ padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', background: '#f9fafb'}} />
+              <input type="text" placeholder="เบอร์โทรศัพท์" value={phone} onChange={e => setPhone(e.target.value)} required style={{ padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', background: '#f9fafb'}} />
+            </>
+          )}
 
-        <button type="submit" style={{ padding: '12px', background: isRegister ? '#2563eb' : '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-          {isRegister ? 'ยืนยันการสมัคร' : 'เข้าสู่ระบบ'}
-        </button>
-      </form>
+          <button type="submit" style={{ 
+            padding: '15px', background: isRegister ? '#2563eb' : '#10b981', color: 'white', 
+            border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px', marginTop: '10px'
+          }}>
+            {isRegister ? 'ยืนยันการสมัคร' : 'เข้าสู่ระบบ'}
+          </button>
+        </form>
 
-      <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        {isRegister ? 'มีบัญชีแล้ว?' : 'ยังไม่มีบัญชี?'}
-        <span onClick={() => setIsRegister(!isRegister)} style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: 'bold', marginLeft: '5px', textDecoration: 'underline' }}>
-          {isRegister ? 'กลับไปหน้า Login' : 'สมัครสมาชิกที่นี่'}
-        </span>
+        <div style={{ marginTop: '25px', fontSize: '15px', color: '#666' }}>
+          {isRegister ? 'มีบัญชีแล้ว?' : 'ยังไม่มีบัญชี?'}
+          <span onClick={() => setIsRegister(!isRegister)} style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: 'bold', marginLeft: '5px', textDecoration: 'underline' }}>
+            {isRegister ? 'กลับไปหน้า Login' : 'สมัครสมาชิกที่นี่'}
+          </span>
+        </div>
+
       </div>
     </div>
   );
