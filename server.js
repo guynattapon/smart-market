@@ -97,31 +97,42 @@ app.post('/stalls/add', async (req, res) => {
 });
 
 // 📝 จองแผง (สำหรับลูกค้า)
+// 📝 จองแผง (เวอร์ชันแจ้งเตือน Discord 👾)
 app.post('/book', async (req, res) => {
-  const { stall_id, user_id } = req.body;
+  const { stall_id, user_id, stall_code, user_name } = req.body; 
+  
+  // 👇 ลิงก์ Webhook ของเพื่อน (ใส่ให้แล้วครับ)
+  const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
+
   try {
+    // 1. อัปเดต Database
     await pool.query("UPDATE stalls SET status = 'OCCUPIED', tenant_id = $1 WHERE id = $2", [user_id, stall_id]);
+    
+    // 2. ส่งเข้า Discord
+    if (DISCORD_WEBHOOK_URL) {
+        const discordMessage = {
+            content: "🚨 **มีรายการจองใหม่จ้า!** @everyone", // @everyone เพื่อแท็กเรียกทุกคน
+            embeds: [{
+                title: `🏠 มีลูกค้าจองแผง: ${stall_code}`,
+                description: "รีบเข้าไปตรวจสอบและอนุมัติด้วยนะครับ!",
+                color: 5763719, // สีเขียว
+                fields: [
+                    { name: "👤 ชื่อลูกค้า", value: user_name || "ไม่ระบุชื่อ", inline: true },
+                    { name: "💰 สถานะ", value: "รอตรวจสอบ", inline: true },
+                    { name: "⏰ เวลาทำรายการ", value: new Date().toLocaleString('th-TH'), inline: false }
+                ],
+                footer: { text: "Smart Market Notification System" }
+            }]
+        };
+
+        await axios.post(DISCORD_WEBHOOK_URL, discordMessage)
+             .catch(err => console.error("Discord Error:", err.message));
+    }
+
     res.json({ message: 'จองสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ message: err.message }); 
+  }
 });
-
-// 🚫 ยกเลิกการจอง (Reset แผงให้ว่าง)
-app.put('/stalls/:id/cancel', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL WHERE id = $1", [id]);
-    res.json({ message: 'ยกเลิกการจองสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// 🗑️ ลบแผงค้าทิ้ง
-app.delete('/stalls/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query("DELETE FROM stalls WHERE id = $1", [id]);
-    res.json({ message: 'ลบแผงค้าสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
