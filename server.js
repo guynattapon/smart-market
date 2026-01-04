@@ -123,6 +123,42 @@ app.get('/admin/stats', async (req, res) => {
     res.json({ totalIncome: totalIncome, stallStats: statusResult.rows, incomeTypes: { rent: totalIncome, water: totalIncome * 0.1, electric: totalIncome * 0.2 } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
+// 🧾 ระบบส่งบิลแจ้งหนี้ (Rent + Water + Electric)
+app.post('/notify/bill', async (req, res) => {
+  const { stall_code, tenant_name, rent, water, electric, total } = req.body;
+  
+  // ลิงก์ Discord อันเดิมของเพื่อน
+  const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
+
+  try {
+    if (DISCORD_WEBHOOK_URL) {
+        const discordMessage = {
+            content: `📢 **บิลค่าเช่าประจำเดือนมาแล้วครับ!** @everyone`,
+            embeds: [{
+                title: `🧾 ใบแจ้งหนี้: แผง ${stall_code}`,
+                description: `ผู้เช่า: **${tenant_name}**`,
+                color: 3447003, // สีน้ำเงิน (Blue)
+                fields: [
+                    { name: "📅 ประจำเดือน", value: new Date().toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }), inline: true },
+                    { name: "────────────────", value: "\u200b", inline: false }, // เส้นคั่น
+                    { name: "🏠 ค่าเช่าแผง", value: `${parseInt(rent).toLocaleString()} บาท`, inline: true },
+                    { name: "💧 ค่าน้ำ", value: `${parseInt(water).toLocaleString()} บาท`, inline: true },
+                    { name: "⚡ ค่าไฟ", value: `${parseInt(electric).toLocaleString()} บาท`, inline: true },
+                    { name: "────────────────", value: "\u200b", inline: false },
+                    { name: "💰 ยอดรวมทั้งสิ้น", value: `**${parseInt(total).toLocaleString()} บาท**`, inline: false }
+                ],
+                footer: { text: "กรุณาชำระเงินภายในวันที่ 5 ของเดือน ขอบคุณครับ 🙏" }
+            }]
+        };
+        // ส่งเข้า Discord
+        await axios.post(DISCORD_WEBHOOK_URL, discordMessage);
+    }
+    res.json({ message: 'ส่งบิลสำเร็จ' });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });

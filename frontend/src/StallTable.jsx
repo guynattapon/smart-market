@@ -36,7 +36,6 @@ function StallTable() {
 
   useEffect(() => { fetchStalls(); }, []);
 
-  // 👇 ฟังก์ชันแปลงรหัสโซนเป็นชื่อ (ใช้บ่อย)
   const getZoneName = (id) => {
     switch(parseInt(id)) {
       case 1: return '🥩 ของสด (Fresh)';
@@ -51,7 +50,6 @@ function StallTable() {
   const handleAddStall = () => {
     Swal.fire({
       title: '🛠️ เพิ่มแผงค้าใหม่',
-      // 👇 เพิ่มตัวเลือกโซนใหม่ตรงนี้
       html: `
         <input id="swal-code" class="swal2-input" placeholder="รหัสแผง (เช่น A01)">
         <select id="swal-zone" class="swal2-input">
@@ -80,8 +78,6 @@ function StallTable() {
     });
   };
 
-  // ... (ฟังก์ชัน handleCheckSlip, handleDelete, handleCancel เหมือนเดิมเป๊ะ ไม่ต้องแก้)
-  // 👇 แก้ฟังก์ชันนี้ครับ (ให้โชว์ 2 รูป)
   const handleCheckSlip = (stall) => {
     Swal.fire({
       title: 'ตรวจสอบหลักฐาน 🕵️',
@@ -113,6 +109,83 @@ function StallTable() {
       }
     });
   };
+
+  // 👇 ฟังก์ชันแจ้งบิล
+  const handleSendBill = (stall) => {
+    Swal.fire({
+      title: `🧾 แจ้งบิลแผง ${stall.code}`,
+      html: `
+        <div style="text-align:left; font-size:1rem; color:#333;">
+            <div style="background:#f3f4f6; padding:10px; border-radius:8px; margin-bottom:15px;">
+                <b>🏠 ค่าเช่า (Rent):</b> <span style="float:right; color:#059669; font-weight:bold;">${parseInt(stall.monthly_price).toLocaleString()} ฿</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>💧 ค่าน้ำ (Water):</label>
+                <input id="bill-water" type="number" class="swal2-input" placeholder="0" value="0" style="margin-top:5px; width:100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>⚡ ค่าไฟ (Electric):</label>
+                <input id="bill-electric" type="number" class="swal2-input" placeholder="0" value="0" style="margin-top:5px; width:100%;">
+            </div>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: '🚀 ส่งบิลแจ้งเตือน',
+      confirmButtonColor: '#3b82f6',
+      cancelButtonText: 'ยกเลิก',
+      preConfirm: () => {
+        const water = document.getElementById('bill-water').value;
+        const electric = document.getElementById('bill-electric').value;
+        if (water === '' || electric === '') {
+          Swal.showValidationMessage('กรุณากรอกตัวเลข (ถ้าไม่มีให้ใส่ 0)');
+        }
+        return { water, electric };
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const { water, electric } = result.value;
+        const rent = stall.monthly_price;
+        const total = parseInt(rent) + parseInt(water) + parseInt(electric);
+
+        Swal.fire({title: 'กำลังส่งบิล...', didOpen: () => Swal.showLoading()});
+        
+        axios.post('https://smart-market-h5xu.onrender.com/notify/bill', {
+            stall_code: stall.code,
+            tenant_name: stall.tenant_name,
+            rent, water, electric, total
+        })
+        .then(() => Swal.fire('ส่งบิลแล้ว!', `ยอดรวม ${total.toLocaleString()} บาท`, 'success'))
+        .catch(err => Swal.fire('Error', err.message, 'error'));
+      }
+    });
+  };
+
+  // ฟังก์ชันลบและคืนแผง (ต้องใส่ไว้ด้วย ไม่งั้น Error)
+  const handleDeleteStall = (id) => {
+    Swal.fire({
+      title: 'ลบแผง?', icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`)
+          .then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
+      }
+    });
+  };
+
+  const handleCancelBooking = (id) => {
+    Swal.fire({
+      title: 'คืนแผง?', icon: 'warning', showCancelButton: true, confirmButtonText: 'คืนแผง'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`)
+          .then(() => { Swal.fire('เรียบร้อย', '', 'success'); fetchStalls(); });
+      }
+    });
+  };
+
+  if (loading) return <div>Loading...</div>;
+
   return (
     <div className="card" style={{ marginTop: '30px' }}>
       <div style={{ display: 'none' }}><Receipt ref={componentRef} data={printData} /></div>
@@ -132,7 +205,6 @@ function StallTable() {
               return (
               <tr key={stall.id}>
                 <td><strong>{stall.code}</strong></td>
-                {/* 👇 เรียกใช้ฟังก์ชันแปลงชื่อโซน */}
                 <td>{getZoneName(stall.zone_id)}</td>
                 <td>
                   <span style={{
@@ -147,10 +219,27 @@ function StallTable() {
                 <td>{parseInt(stall.monthly_price).toLocaleString()}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '5px' }}>
+                    
+                    {/* ปุ่มตรวจสลิป */}
                     {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍</button>}
+
+                    {/* ✅ ปุ่มแจ้งบิล (เพิ่มตรงนี้) */}
+                    {isOccupied && (
+                        <button onClick={() => handleSendBill(stall)} 
+                                className="btn-info btn-sm" 
+                                title="ส่งบิล" 
+                                style={{backgroundColor:'#3b82f6', color:'white', border:'none'}}>
+                            🧾
+                        </button>
+                    )}
+
+                    {/* ปุ่มพิมพ์ใบเสร็จ */}
                     {isOccupied && <button onClick={() => clickPrint(stall)} className="btn-primary btn-sm">🖨️</button>}
+                    
+                    {/* ปุ่มคืนแผง/ลบ */}
                     {(isOccupied || isPending) && <button onClick={() => handleCancelBooking(stall.id)} className="btn-danger btn-sm">🔄</button>}
                     <button onClick={() => handleDeleteStall(stall.id)} className="btn-danger btn-sm">🗑️</button>
+
                   </div>
                 </td>
               </tr>
