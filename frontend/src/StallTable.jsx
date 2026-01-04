@@ -78,9 +78,10 @@ function StallTable() {
     });
   };
 
+  // ตรวจสลิปจอง (Booking Check)
   const handleCheckSlip = (stall) => {
     Swal.fire({
-      title: 'ตรวจสอบหลักฐาน 🕵️',
+      title: 'ตรวจสอบการจอง 🕵️',
       html: `
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
             <div style="text-align:center;">
@@ -110,7 +111,35 @@ function StallTable() {
     });
   };
 
-  // 👇 ฟังก์ชันแจ้งบิล
+  // 👇 ตรวจการจ่ายบิล (Bill Payment Check) - ฟังก์ชันนี้ต้องมี!
+  const handleCheckBillPayment = (stall) => {
+    Swal.fire({
+      title: 'ตรวจสอบการจ่ายบิล 💰',
+      html: `
+        <p>ยอดชำระ: <b>${stall.bill_total.toLocaleString()} บาท</b></p>
+        <div style="text-align:center;">
+            <img src="${stall.bill_slip_image}" style="max-width: 300px; border: 1px solid #ddd; border-radius: 8px; margin: 10px 0;">
+        </div>
+        <p>ผู้จ่าย: ${stall.tenant_name}</p>
+      `,
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: '✅ ยืนยันว่าจ่ายแล้ว (Approve)',
+      denyButtonText: '❌ สลิปไม่ผ่าน (Reject)',
+      confirmButtonColor: '#10b981',
+      denyButtonColor: '#ef4444',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.put(`https://smart-market-h5xu.onrender.com/bill/${stall.id}/approve`)
+          .then(() => { Swal.fire('เรียบร้อย', 'หนี้ถูกเคลียร์แล้ว', 'success'); fetchStalls(); });
+      } else if (result.isDenied) {
+        axios.put(`https://smart-market-h5xu.onrender.com/bill/${stall.id}/reject`)
+          .then(() => { Swal.fire('ปฏิเสธแล้ว', 'แจ้งลูกค้าให้ส่งใหม่', 'info'); fetchStalls(); });
+      }
+    });
+  };
+
+  // ส่งบิล
   const handleSendBill = (stall) => {
     Swal.fire({
       title: `🧾 แจ้งบิลแผง ${stall.code}`,
@@ -137,9 +166,7 @@ function StallTable() {
       preConfirm: () => {
         const water = document.getElementById('bill-water').value;
         const electric = document.getElementById('bill-electric').value;
-        if (water === '' || electric === '') {
-          Swal.showValidationMessage('กรุณากรอกตัวเลข (ถ้าไม่มีให้ใส่ 0)');
-        }
+        if (water === '' || electric === '') { Swal.showValidationMessage('กรุณากรอกตัวเลข'); }
         return { water, electric };
       }
     }).then((result) => {
@@ -149,38 +176,24 @@ function StallTable() {
         const total = parseInt(rent) + parseInt(water) + parseInt(electric);
 
         Swal.fire({title: 'กำลังส่งบิล...', didOpen: () => Swal.showLoading()});
-        
         axios.post('https://smart-market-h5xu.onrender.com/notify/bill', {
             stall_code: stall.code,
             tenant_name: stall.tenant_name,
             rent, water, electric, total
-        })
-        .then(() => Swal.fire('ส่งบิลแล้ว!', `ยอดรวม ${total.toLocaleString()} บาท`, 'success'))
-        .catch(err => Swal.fire('Error', err.message, 'error'));
+        }).then(() => { Swal.fire('ส่งบิลแล้ว!', '', 'success'); fetchStalls(); });
       }
     });
   };
 
-  // ฟังก์ชันลบและคืนแผง (ต้องใส่ไว้ด้วย ไม่งั้น Error)
   const handleDeleteStall = (id) => {
-    Swal.fire({
-      title: 'ลบแผง?', icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`)
-          .then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
-      }
+    Swal.fire({ title: 'ลบแผง?', icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!' }).then((result) => {
+      if (result.isConfirmed) axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`).then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
     });
   };
 
   const handleCancelBooking = (id) => {
-    Swal.fire({
-      title: 'คืนแผง?', icon: 'warning', showCancelButton: true, confirmButtonText: 'คืนแผง'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`)
-          .then(() => { Swal.fire('เรียบร้อย', '', 'success'); fetchStalls(); });
-      }
+    Swal.fire({ title: 'คืนแผง?', icon: 'warning', showCancelButton: true, confirmButtonText: 'คืนแผง' }).then((result) => {
+      if (result.isConfirmed) axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`).then(() => { Swal.fire('เรียบร้อย', '', 'success'); fetchStalls(); });
     });
   };
 
@@ -201,7 +214,9 @@ function StallTable() {
           <tbody>
             {stalls.map((stall) => {
               const isOccupied = stall.status === 'OCCUPIED';
-              const isPending = stall.status === 'PENDING';
+              const isPending = stall.status === 'PENDING'; // จองรออนุมัติ
+              const isBillPending = stall.bill_status === 'PENDING'; // จ่ายบิลรออนุมัติ
+
               return (
               <tr key={stall.id}>
                 <td><strong>{stall.code}</strong></td>
@@ -212,7 +227,7 @@ function StallTable() {
                     backgroundColor: isOccupied ? '#fee2e2' : (isPending ? '#fef3c7' : '#d1fae5'),
                     color: isOccupied ? '#ef4444' : (isPending ? '#d97706' : '#10b981')
                   }}>
-                    {isOccupied ? '🔴 ไม่ว่าง' : (isPending ? '🟡 รอตรวจ' : '🟢 ว่าง')}
+                    {isOccupied ? '🔴 ไม่ว่าง' : (isPending ? '🟡 รอตรวจจอง' : '🟢 ว่าง')}
                   </span>
                 </td>
                 <td>{stall.tenant_name || '-'}</td>
@@ -220,16 +235,21 @@ function StallTable() {
                 <td>
                   <div style={{ display: 'flex', gap: '5px' }}>
                     
-                    {/* ปุ่มตรวจสลิป */}
-                    {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍</button>}
+                    {/* 1. ปุ่มตรวจจองแผง (แรกเข้า) */}
+                    {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍 ตรวจจอง</button>}
 
-                    {/* ✅ ปุ่มแจ้งบิล (เพิ่มตรงนี้) */}
-                    {isOccupied && (
-                        <button onClick={() => handleSendBill(stall)} 
-                                className="btn-info btn-sm" 
-                                title="ส่งบิล" 
-                                style={{backgroundColor:'#3b82f6', color:'white', border:'none'}}>
-                            🧾
+                    {/* 2. ปุ่มแจ้งบิล (โชว์เมื่อยังไม่ส่งบิล หรือจ่ายครบแล้ว) */}
+                    {isOccupied && stall.bill_total === 0 && (
+                        <button onClick={() => handleSendBill(stall)} className="btn-info btn-sm" title="ส่งบิล">🧾</button>
+                    )}
+
+                    {/* 3. 🔥 ปุ่มใหม่: ตรวจการจ่ายบิล (โชว์เมื่อลูกค้าส่งสลิปบิลมาแล้ว) */}
+                    {isBillPending && (
+                        <button onClick={() => handleCheckBillPayment(stall)} 
+                            className="btn-warning btn-sm" 
+                            title="ตรวจรับเงิน"
+                            style={{backgroundColor:'#f59e0b', color:'black', border:'none', animation:'pulse 1s infinite'}}>
+                            💰 ตรวจรับเงิน
                         </button>
                     )}
 
