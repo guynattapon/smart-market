@@ -1,50 +1,50 @@
 import { useState } from 'react';
 import Login from './Login';
-import Dashboard from './Dashboard';
-import MarketMap from './MarketMap'; // 👈 นำเข้าไฟล์ใหม่
-import './App.css'; 
+import Register from './Register';
+import StallTable from './StallTable';
+import MarketMap from './MarketMap';
+import Navbar from './Navbar';
+import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const [page, setPage] = useState('login'); // login, register, dashboard
 
-  const handleLogin = (loggedInUser, userToken) => {
-    setUser(loggedInUser);
-    setToken(userToken);
-  };
-
+  // ฟังก์ชัน Logout
   const handleLogout = () => {
     setUser(null);
-    setToken(null);
+    setPage('login');
   };
 
-  // 1. ถ้ายังไม่ Login -> โชว์หน้า Login
-  if (!user) {
-    return <Login onLoginSuccess={handleLogin} />;
-  }
-
-  // 2. ถ้า Login แล้ว -> เช็คว่าเป็นใคร?
   return (
-    <>
-      {/* 👑 ถ้าเป็น ADMIN -> ให้ดู Dashboard (กราฟยอดขาย) */}
-      {user.role === 'ADMIN' ? (
-        <div className="container">
-           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h1 style={{ margin: 0 }}>Smart Market 🍎</h1>
-              <p style={{ margin: 0, color: '#666' }}>Admin Console</p>
-            </div>
-            <button className="btn-logout" onClick={handleLogout} style={{ backgroundColor: '#ef4444', color: 'white' }}>
-              ออกจากระบบ
-            </button>
-          </div>
-          <Dashboard />
-        </div>
-      ) : (
-        /* 🛒 ถ้าเป็นลูกค้าทั่วไป -> ให้ดู MarketMap (จองแผง) */
-        <MarketMap user={user} onLogout={handleLogout} />
-      )}
-    </>
+    <div style={{ backgroundColor: '#f3f4f6', minHeight: '100vh' }}>
+      
+      {/* Navbar อยู่บนสุดเสมอ */}
+      <Navbar user={user} onLogout={handleLogout} />
+
+      <div className="container" style={{ padding: '0 20px 40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
+        
+        {/* Logic สลับหน้า */}
+        {!user ? (
+          page === 'login' ? (
+            <Login setUser={setUser} switchToRegister={() => setPage('register')} />
+          ) : (
+            <Register switchToLogin={() => setPage('login')} />
+          )
+        ) : (
+          user.role === 'ADMIN' ? (
+            <StallTable />
+          ) : (
+            <MarketMap user={user} />
+          )
+        )}
+        
+      </div>
+
+      <footer style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '0.8rem' }}>
+        © 2026 Smart Market Project
+      </footer>
+    </div>
   );
 }
 

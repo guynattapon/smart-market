@@ -182,7 +182,7 @@ function StallTable() {
     });
   };
 
-  // 🔥 5. ดูประวัติการเงิน (ฉบับแก้: ใช้ Popup แทน Link เพื่อแก้ปัญหา Chrome Block)
+  // 🔥 ฟังก์ชันดูประวัติ (ฉบับแก้ Popup Base64)
   const handleShowHistory = () => {
     Swal.fire({ title: 'กำลังโหลดข้อมูล...', didOpen: () => Swal.showLoading() });
     
@@ -190,7 +190,6 @@ function StallTable() {
       .then((res) => {
         const history = res.data;
         
-        // ฟังก์ชันช่วยเปิดรูป (ใส่ใน window เพื่อให้ string html เรียกใช้ได้)
         window.viewSlip = (index) => {
             const item = history[index];
             Swal.fire({
@@ -221,7 +220,6 @@ function StallTable() {
         } else {
             history.forEach((item, index) => {
                 const date = new Date(item.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour:'2-digit', minute:'2-digit' });
-                // 👇 เปลี่ยนจาก <a> เป็น <button> เพื่อแก้ Error
                 tableHtml += `
                   <tr style="border-bottom: 1px solid #eee;">
                     <td style="padding:8px;">${date}</td>
@@ -308,7 +306,7 @@ function StallTable() {
                   <div style={{ display: 'flex', gap: '5px' }}>
                     
                     {/* ปุ่มตรวจจองแผง */}
-                    {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍 ตรวจจอง</button>}
+                    {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍</button>}
 
                     {/* ปุ่มแจ้งบิล */}
                     {isOccupied && stall.bill_total === 0 && (
@@ -321,7 +319,7 @@ function StallTable() {
                             className="btn-warning btn-sm" 
                             title="ตรวจรับเงิน"
                             style={{backgroundColor:'#f59e0b', color:'black', border:'none', animation:'pulse 1s infinite'}}>
-                            💰 ตรวจรับเงิน
+                            💰
                         </button>
                     )}
 
