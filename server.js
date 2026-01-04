@@ -17,7 +17,7 @@ const pool = new Pool({
 });
 
 // ==========================================
-// 🛠️ 0. เตรียม Database (สร้างตาราง/เพิ่มช่องให้อัตโนมัติ)
+// 🛠️ 0. เตรียม Database (สร้างตารางครบชุด)
 // ==========================================
 const initDB = async () => {
   try {
@@ -45,7 +45,22 @@ const initDB = async () => {
       );
     `);
 
-    // 3. เพิ่มคอลัมน์ใหม่ๆ (เผื่อยังไม่มี)
+    // 3. ✨ ตารางใหม่: ประวัติการชำระเงิน (เก็บข้อมูลย้อนหลัง)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payment_history (
+        id SERIAL PRIMARY KEY,
+        stall_code TEXT,
+        tenant_name TEXT,
+        amount NUMERIC,           
+        rent_amount NUMERIC,      
+        water_amount NUMERIC,     
+        electric_amount NUMERIC,  
+        slip_image TEXT,          
+        paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 4. เพิ่มคอลัมน์ต่างๆ ให้ stalls (เผื่อยังไม่มี)
     const columns = [
         "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS slip_image TEXT",     // สลิปจอง
         "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS doc_image TEXT",      // รูปบัตร ปชช.
@@ -53,7 +68,7 @@ const initDB = async () => {
         "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_electric INT DEFAULT 0", // ค่าไฟ
         "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_total INT DEFAULT 0",    // ยอดรวม
         "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_slip_image TEXT", // สลิปจ่ายบิล
-        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_status TEXT DEFAULT 'PAID'" // สถานะบิล (PAID, UNPAID, PENDING)
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_status TEXT DEFAULT 'PAID'" // สถานะบิล
     ];
 
     for (let col of columns) {
@@ -63,7 +78,7 @@ const initDB = async () => {
     // สร้าง Admin ถ้ายังไม่มี
     await pool.query("INSERT INTO users (username, password, full_name, role) VALUES ('admin', 'admin1234', 'Super Admin', 'ADMIN') ON CONFLICT DO NOTHING");
     
-    console.log("Database & Admin initialized successfully");
+    console.log("Database, History Table & Admin initialized successfully");
   } catch (e) { 
     console.log("DB Init Error:", e.message); 
   }
@@ -102,7 +117,7 @@ app.post('/register', async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// ทางลัดสร้าง Admin (เผื่อฉุกเฉิน)
+// ทางลัดสร้าง Admin
 app.get('/setup/admin', async (req, res) => {
     try {
         await pool.query("INSERT INTO users (username, password, full_name, role) VALUES ('admin', 'admin1234', 'Super Admin', 'ADMIN') ON CONFLICT DO NOTHING");
@@ -227,7 +242,6 @@ app.post('/notify/bill', async (req, res) => {
   const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
 
   try {
-    // บันทึกหนี้ และตั้งสถานะเป็น UNPAID
     await pool.query(
         "UPDATE stalls SET bill_water=$1, bill_electric=$2, bill_total=$3, bill_status='UNPAID', bill_slip_image=NULL WHERE code=$4",
         [water, electric, total, stall_code]
@@ -276,19 +290,32 @@ app.post('/pay/bill', async (req, res) => {
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// 5.3 Admin ยืนยันการจ่าย (Approve Payment) -> Status: PAID, ยอดหนี้ = 0
+// 5.3 ✨ Admin อนุมัติการจ่าย -> เก็บประวัติลง DB -> เคลียร์หนี้เป็น 0
 app.put('/bill/:id/approve', async (req, res) => {
     const { id } = req.params;
     try {
+        // 1. ดึงข้อมูลบิลปัจจุบัน
+        const stallRes = await pool.query(`SELECT stalls.*, users.full_name AS t_name FROM stalls LEFT JOIN users ON stalls.tenant_id = users.id WHERE stalls.id = $1`, [id]);
+        const stall = stallRes.rows[0];
+
+        // 2. บันทึกลงตารางประวัติ (History)
+        if (stall) {
+            await pool.query(
+                `INSERT INTO payment_history (stall_code, tenant_name, amount, rent_amount, water_amount, electric_amount, slip_image) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [stall.code, stall.t_name || 'Unknown', stall.bill_total, stall.monthly_price, stall.bill_water, stall.bill_electric, stall.bill_slip_image]
+            );
+        }
+
+        // 3. เคลียร์ยอดหนี้เป็น 0
         await pool.query(
             "UPDATE stalls SET bill_water=0, bill_electric=0, bill_total=0, bill_status='PAID', bill_slip_image=NULL WHERE id=$1", 
             [id]
         );
-        res.json({ message: 'ยืนยันการชำระเงินเรียบร้อย' });
+        res.json({ message: 'ยืนยันการชำระเงินและบันทึกประวัติเรียบร้อย' });
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// 5.4 Admin ปฏิเสธสลิป (Reject Payment) -> Status: UNPAID
+// 5.4 Admin ปฏิเสธสลิป -> Status: UNPAID
 app.put('/bill/:id/reject', async (req, res) => {
     const { id } = req.params;
     try {
