@@ -13,7 +13,6 @@ function MarketMap({ user }) {
 
   useEffect(() => { fetchStalls(); }, []);
 
-  // Helper ชื่อโซน
   const getZoneDisplayName = (id) => {
     switch(parseInt(id)) {
       case 1: return '🥩 โซนของสด (Fresh Market)';
@@ -29,87 +28,97 @@ function MarketMap({ user }) {
     if (!user) { Swal.fire('กรุณา Login', 'ต้องเข้าสู่ระบบก่อนจองนะครับ', 'warning'); return; }
 
     const price = parseInt(stall.monthly_price);
-    const deposit = price; // สมมติเงินประกัน 1 เดือน
-    const totalPrepare = price + deposit; // ยอดรวมที่ต้องเตรียม
+    const deposit = price; 
+    const totalPrepare = price + deposit; 
 
-    // 🔥 STEP 1: แสดงกฎระเบียบและสิ่งที่ต้องเตรียม
+    // 🔥 STEP 1: แจ้งกฎระเบียบ
     Swal.fire({
-      title: '📜 สิ่งที่ต้องเตรียมและขั้นตอน',
-      width: '650px', // ขยายกว้างหน่อยให้อ่านง่าย
+      title: '📜 สิ่งที่ต้องเตรียม',
+      width: '600px',
       html: `
-        <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
-          
-          <h4 style="color: #d97706; margin-bottom:5px;">1. 📄 เอกสารสำคัญที่ต้องพกไป (Documents)</h4>
-          <ul style="margin-bottom: 15px; padding-left: 20px;">
-            <li><b>สำเนาบัตรประชาชน & ทะเบียนบ้าน</b> (เซ็นรับรองสำเนาถูกต้อง)</li>
-            <li><b>รูปถ่าย</b> สำหรับติดบัตรผู้ค้า (ตามระเบียบตลาด)</li>
-            <li>เอกสารอื่นๆ เช่น ใบเปลี่ยนชื่อ หรือใบรับรองมาตรฐานสินค้า (ถ้ามี)</li>
-          </ul>
-
-          <h4 style="color: #10b981; margin-bottom:5px;">2. 💰 เงินทุนที่ต้องเตรียม (วันทำสัญญา)</h4>
-          <ul style="margin-bottom: 15px; padding-left: 20px;">
-            <li><b>เงินประกันสัญญา:</b> ${deposit.toLocaleString()} บาท (1 เดือน)</li>
-            <li><b>ค่าเช่าล่วงหน้า:</b> ${price.toLocaleString()} บาท (1 เดือน)</li>
-            <li>ค่าธรรมเนียมอื่นๆ (ขยะ/ภาษี) ตามตกลงในสัญญา</li>
-            <li style="color: red; font-weight: bold;">รวมเตรียมมาประมาณ: ${totalPrepare.toLocaleString()} บาท + ค่าธรรมเนียม</li>
-          </ul>
-
-          <h4 style="color: #3b82f6; margin-bottom:5px;">3. 🚶 ขั้นตอนการดำเนินการ (Procedure)</h4>
-          <ul style="margin-bottom: 0; padding-left: 20px;">
-            <li><b>1. จองในเว็บนี้:</b> แนบสลิปจองเพื่อล็อกแผง (รอแอดมินอนุมัติ)</li>
-            <li><b>2. ติดต่อสนง.ตลาด:</b> เมื่ออนุมัติแล้ว ให้ไปที่สำนักงานเพื่อยื่นเอกสาร</li>
-            <li><b>3. ทำสัญญาเช่า:</b> ตรวจสอบสัญญาและชำระเงินส่วนที่เหลือ</li>
-          </ul>
-
+        <div style="text-align: left; font-size: 0.9rem;">
+          <h4 style="color:#d97706">1. 📄 เอกสารที่ต้องใช้ (Documents)</h4>
+          <ul><li>สำเนาบัตรประชาชน / ทะเบียนบ้าน</li></ul>
+          <h4 style="color:#10b981">2. 💰 ยอดชำระวันนี้</h4>
+          <ul><li>ค่าจอง/มัดจำ: <b>${price.toLocaleString()}</b> บาท</li></ul>
         </div>
+        <p style="color:red; font-size:0.8rem; margin-top:10px;">*กรุณาเตรียมไฟล์รูปภาพให้พร้อมก่อนกดดำเนินการต่อ</p>
       `,
       icon: 'info',
       showCancelButton: true,
       confirmButtonText: 'รับทราบและดำเนินการต่อ',
       confirmButtonColor: '#3b82f6',
-      cancelButtonText: 'ยกเลิก',
     }).then((result) => {
       
-      // 🔥 STEP 2: ถ้ากดรับทราบ ค่อยให้แนบสลิป
       if (result.isConfirmed) {
+        // 🔥 STEP 2: ขอรูปสลิป (Slip)
         Swal.fire({
-          title: `ยืนยันจองแผง ${stall.code}`,
-          text: `ค่าจอง/มัดจำเบื้องต้น: ${price.toLocaleString()} บาท\n(กรุณาแนบสลิปโอนเงิน)`,
+          title: 'ขั้นตอนที่ 1/2',
+          text: `กรุณาแนบ "สลิปโอนเงิน" (${price.toLocaleString()} บ.)`,
           input: 'file',
-          inputAttributes: { 'accept': 'image/*', 'aria-label': 'Upload payment slip' },
-          showCancelButton: true,
-          confirmButtonText: 'ส่งหลักฐานการโอน',
+          inputAttributes: { 'accept': 'image/*' },
+          confirmButtonText: 'ถัดไป >',
           confirmButtonColor: '#10b981',
-          preConfirm: (file) => {
-            if (!file) { Swal.showValidationMessage('กรุณาเลือกรูปสลิปก่อนครับ'); }
-            return file;
-          }
-        }).then((fileResult) => {
-          if (fileResult.isConfirmed) {
-            const file = fileResult.value;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              // ส่งข้อมูลไป Backend
-              axios.post('https://smart-market-h5xu.onrender.com/book', {
-                stall_id: stall.id,
-                user_id: user.id,
-                stall_code: stall.code,
-                user_name: user.full_name,
-                image: e.target.result
-              })
-              .then(() => {
-                Swal.fire('ส่งหลักฐานเรียบร้อย!', 'เจ้าหน้าที่จะตรวจสอบและแจ้งผลผ่าน Discord/Web', 'success');
-                fetchStalls();
-              })
-              .catch(err => Swal.fire('Error', err.message, 'error'));
-            };
-            reader.readAsDataURL(file);
+          showCancelButton: true,
+          preConfirm: (file) => file || Swal.showValidationMessage('กรุณาแนบสลิป')
+        }).then((slipResult) => {
+          
+          if (slipResult.isConfirmed) {
+            const slipFile = slipResult.value;
+
+            // 🔥 STEP 3: ขอรูปเอกสาร (Document)
+            Swal.fire({
+              title: 'ขั้นตอนที่ 2/2',
+              text: 'กรุณาแนบ "สำเนาบัตรประชาชน" หรือเอกสารยืนยันตัวตน',
+              input: 'file',
+              inputAttributes: { 'accept': 'image/*' },
+              confirmButtonText: 'ส่งข้อมูลการจอง',
+              confirmButtonColor: '#3b82f6',
+              showCancelButton: true,
+              preConfirm: (file) => file || Swal.showValidationMessage('กรุณาแนบเอกสาร')
+            }).then((docResult) => {
+
+              if (docResult.isConfirmed) {
+                const docFile = docResult.value;
+                
+                // แปลงไฟล์ทั้งคู่เป็น Base64
+                const reader1 = new FileReader();
+                reader1.readAsDataURL(slipFile);
+                reader1.onload = (e1) => {
+                    const slipBase64 = e1.target.result;
+                    
+                    const reader2 = new FileReader();
+                    reader2.readAsDataURL(docFile);
+                    reader2.onload = (e2) => {
+                        const docBase64 = e2.target.result;
+
+                        // ส่งไป Server
+                        Swal.fire({title: 'กำลังส่งข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+                        
+                        axios.post('https://smart-market-h5xu.onrender.com/book', {
+                            stall_id: stall.id,
+                            user_id: user.id,
+                            stall_code: stall.code,
+                            user_name: user.full_name,
+                            image: slipBase64,     // สลิป
+                            doc_image: docBase64   // เอกสาร
+                        })
+                        .then(() => {
+                            Swal.fire('จองสำเร็จ!', 'ส่งสลิปและเอกสารเรียบร้อย รอตรวจสอบ', 'success');
+                            fetchStalls();
+                        })
+                        .catch(err => Swal.fire('Error', err.message, 'error'));
+                    };
+                };
+              }
+            });
           }
         });
       }
     });
   };
 
+  // ... (ส่วน return เหมือนเดิม ไม่ต้องแก้)
   return (
     <div className="card">
       <h2 style={{ marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
@@ -117,13 +126,9 @@ function MarketMap({ user }) {
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
         {stalls.map((stall) => {
-            let bgColor = '#10b981'; 
-            let cursor = 'pointer';
-            let statusText = `฿${parseInt(stall.monthly_price).toLocaleString()}`;
-
+            let bgColor = '#10b981'; let cursor = 'pointer'; let statusText = `฿${parseInt(stall.monthly_price).toLocaleString()}`;
             if (stall.status === 'OCCUPIED') { bgColor = '#ef4444'; cursor = 'not-allowed'; statusText = '🔒 จองแล้ว'; } 
             else if (stall.status === 'PENDING') { bgColor = '#f59e0b'; cursor = 'not-allowed'; statusText = '⏳ รอตรวจสอบ'; }
-
             return (
               <div key={stall.id} onClick={() => stall.status === 'VACANT' && handleBooking(stall)}
                 style={{

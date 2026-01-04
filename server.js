@@ -8,39 +8,24 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 
-// ⚠️ สำคัญ: เพิ่มขนาดให้รับรูปภาพใหญ่ๆ ได้ (ป้องกัน Error Payload too large)
+// ✅ รองรับรูปภาพขนาดใหญ่ (10MB)
 app.use(bodyParser.json({ limit: '10mb' })); 
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
-// 📊 Dashboard Stats (แก้บั๊กจอขาว: เติม incomeTypes กลับมา)
-app.get('/admin/stats', async (req, res) => {
-  try {
-    const statusResult = await pool.query("SELECT status, COUNT(*) FROM stalls GROUP BY status");
-    const incomeResult = await pool.query("SELECT SUM(monthly_price) FROM stalls WHERE status = 'OCCUPIED'");
-    const totalIncome = parseInt(incomeResult.rows[0].sum || 0);
 
-    res.json({
-      totalIncome: totalIncome,
-      stallStats: statusResult.rows,
-      // 👇 ส่วนที่ขาดหายไป (เพิ่มกลับมาแล้ว กราฟจะหายป่วยทันที)
-      incomeTypes: { 
-        rent: totalIncome,
-        water: totalIncome * 0.1, // สมมติค่าน้ำ 10%
-        electric: totalIncome * 0.2 // สมมติค่าไฟ 20%
-      }
-    });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// 🛠️ อัปเกรด Database อัตโนมัติ (เพิ่มช่องเก็บรูป ถ้ายังไม่มี)
-pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS slip_image TEXT")
-  .catch(err => console.log("DB update info:", err.message));
+// 🛠️ อัปเกรด Database: เพิ่มช่องเก็บ "รูปเอกสาร" (doc_image)
+const initDB = async () => {
+  await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS slip_image TEXT").catch(e=>console.log(e));
+  await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS doc_image TEXT").catch(e=>console.log(e)); // 👈 เพิ่มช่องนี้
+};
+initDB();
 
 // ==========================================
-// 🔐 1. ระบบ Login & Register
+// 🔐 1. Login & Register
 // ==========================================
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -63,10 +48,9 @@ app.post('/register', async (req, res) => {
 });
 
 // ==========================================
-// 🛒 2. ระบบจัดการแผงค้า (Stalls)
+// 🛒 3. Stalls Management (แก้ให้รองรับเอกสาร)
 // ==========================================
 
-// ดึงข้อมูลแผงค้า
 app.get('/stalls', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -78,35 +62,32 @@ app.get('/stalls', async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// เพิ่มแผงค้า
 app.post('/stalls/add', async (req, res) => {
   const { code, zone_id, monthly_price } = req.body;
-  try {
-    await pool.query("INSERT INTO stalls (code, zone_id, status, monthly_price) VALUES ($1, $2, 'VACANT', $3)", [code, zone_id, monthly_price]);
-    res.json({ message: 'เพิ่มแผงค้าสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  try { await pool.query("INSERT INTO stalls (code, zone_id, status, monthly_price) VALUES ($1, $2, 'VACANT', $3)", [code, zone_id, monthly_price]); res.json({ message: 'สำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// 📸 จองแผง + แนบสลิป (Status -> PENDING)
+// 📸 จองแผง (รับทั้งสลิป และ เอกสาร)
 app.post('/book', async (req, res) => {
-  const { stall_id, user_id, stall_code, user_name, image } = req.body; 
+  // รับ doc_image เพิ่ม
+  const { stall_id, user_id, stall_code, user_name, image, doc_image } = req.body; 
   const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
 
   try {
-    // บันทึกรูปและเปลี่ยนสถานะเป็น PENDING (รอตรวจสอบ)
+    // บันทึกทั้ง 2 รูป
     await pool.query(
-      "UPDATE stalls SET status = 'PENDING', tenant_id = $1, slip_image = $2 WHERE id = $3", 
-      [user_id, image, stall_id]
+      "UPDATE stalls SET status = 'PENDING', tenant_id = $1, slip_image = $2, doc_image = $3 WHERE id = $4", 
+      [user_id, image, doc_image, stall_id]
     );
     
     // แจ้งเตือน Discord
     if (DISCORD_WEBHOOK_URL) {
         const discordMessage = {
-            content: "📸 **มีสลิปโอนเงินเข้ามาใหม่!** @everyone",
+            content: "📑 **มีรายการจองพร้อมเอกสาร!** @everyone",
             embeds: [{
                 title: `🏠 ขอเช่าแผง: ${stall_code}`,
-                description: "โปรดตรวจสอบสลิปและกดอนุมัติ",
-                color: 16776960, // สีเหลือง
+                description: "ลูกค้าแนบสลิปและเอกสารมาแล้ว โปรดตรวจสอบ",
+                color: 16776960, 
                 fields: [
                     { name: "👤 ลูกค้า", value: user_name, inline: true },
                     { name: "💰 สถานะ", value: "รอตรวจสอบ (Pending)", inline: true }
@@ -115,46 +96,31 @@ app.post('/book', async (req, res) => {
         };
         axios.post(DISCORD_WEBHOOK_URL, discordMessage).catch(err => console.error("Discord Error:", err.message));
     }
-    res.json({ message: 'ส่งหลักฐานเรียบร้อย รออนุมัติ' });
+    res.json({ message: 'ส่งข้อมูลครบถ้วน รออนุมัติ' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// ✅ อนุมัติการจอง (Approve)
+// อนุมัติ/ปฏิเสธ/คืนแผง (ต้องล้าง doc_image ด้วยเวลาคืน)
 app.put('/stalls/:id/approve', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query("UPDATE stalls SET status = 'OCCUPIED' WHERE id = $1", [id]);
-    res.json({ message: 'อนุมัติสำเร็จ' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    const { id } = req.params; try { await pool.query("UPDATE stalls SET status = 'OCCUPIED' WHERE id = $1", [id]); res.json({ message: 'อนุมัติสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
 });
-
-// ❌ ปฏิเสธการจอง (Reject)
 app.put('/stalls/:id/reject', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL WHERE id = $1", [id]);
-    res.json({ message: 'ปฏิเสธคำขอเรียบร้อย' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    const { id } = req.params; try { await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL, doc_image = NULL WHERE id = $1", [id]); res.json({ message: 'ปฏิเสธสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
 });
-
-// ลบแผงค้า
-app.delete('/stalls/:id', async (req, res) => {
-  const { id } = req.params;
-  try { await pool.query("DELETE FROM stalls WHERE id = $1", [id]); res.json({ message: 'ลบสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// ยกเลิกจอง (Admin สั่งคืนแผง)
 app.put('/stalls/:id/cancel', async (req, res) => {
-  const { id } = req.params;
-  try { await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL WHERE id = $1", [id]); res.json({ message: 'คืนแผงสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
+    const { id } = req.params; try { await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL, doc_image = NULL WHERE id = $1", [id]); res.json({ message: 'คืนแผงสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/stalls/:id', async (req, res) => {
+    const { id } = req.params; try { await pool.query("DELETE FROM stalls WHERE id = $1", [id]); res.json({ message: 'ลบสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Dashboard Stats
+// Dashboard
 app.get('/admin/stats', async (req, res) => {
   try {
     const statusResult = await pool.query("SELECT status, COUNT(*) FROM stalls GROUP BY status");
     const incomeResult = await pool.query("SELECT SUM(monthly_price) FROM stalls WHERE status = 'OCCUPIED'");
-    res.json({ totalIncome: incomeResult.rows[0].sum || 0, stallStats: statusResult.rows });
+    const totalIncome = parseInt(incomeResult.rows[0].sum || 0);
+    res.json({ totalIncome: totalIncome, stallStats: statusResult.rows, incomeTypes: { rent: totalIncome, water: totalIncome * 0.1, electric: totalIncome * 0.2 } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

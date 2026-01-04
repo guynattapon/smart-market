@@ -81,20 +81,38 @@ function StallTable() {
   };
 
   // ... (ฟังก์ชัน handleCheckSlip, handleDelete, handleCancel เหมือนเดิมเป๊ะ ไม่ต้องแก้)
+  // 👇 แก้ฟังก์ชันนี้ครับ (ให้โชว์ 2 รูป)
   const handleCheckSlip = (stall) => {
     Swal.fire({
-      title: 'ตรวจสอบสลิป 💰', imageUrl: stall.slip_image, imageWidth: 400,
-      showDenyButton: true, showCancelButton: true, confirmButtonText: '✅ อนุมัติ', denyButtonText: '❌ ปฏิเสธ'
+      title: 'ตรวจสอบหลักฐาน 🕵️',
+      html: `
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align:center;">
+                <p>💰 สลิปโอนเงิน</p>
+                <img src="${stall.slip_image}" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;">
+            </div>
+            <div style="text-align:center;">
+                <p>🆔 เอกสาร/บัตร ปชช.</p>
+                <img src="${stall.doc_image || 'https://via.placeholder.com/200?text=No+Document'}" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;">
+            </div>
+        </div>
+        <p style="margin-top:15px;">ผู้จอง: <b>${stall.tenant_name}</b></p>
+      `,
+      width: '600px',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: '✅ อนุมัติ (Approve)',
+      denyButtonText: '❌ ปฏิเสธ (Reject)',
+      confirmButtonColor: '#10b981',
+      denyButtonColor: '#ef4444',
     }).then((result) => {
-      if (result.isConfirmed) axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/approve`).then(() => fetchStalls());
-      else if (result.isDenied) axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/reject`).then(() => fetchStalls());
+      if (result.isConfirmed) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/approve`).then(() => { Swal.fire('อนุมัติแล้ว!', '', 'success'); fetchStalls(); });
+      } else if (result.isDenied) {
+        axios.put(`https://smart-market-h5xu.onrender.com/stalls/${stall.id}/reject`).then(() => { Swal.fire('ปฏิเสธแล้ว', '', 'info'); fetchStalls(); });
+      }
     });
   };
-  const handleDeleteStall = (id) => { Swal.fire({ title: 'ลบแผง?', showCancelButton: true, confirmButtonText: 'ลบ' }).then((r) => r.isConfirmed && axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`).then(fetchStalls)); };
-  const handleCancelBooking = (id) => { Swal.fire({ title: 'คืนแผง?', showCancelButton: true, confirmButtonText: 'คืน' }).then((r) => r.isConfirmed && axios.put(`https://smart-market-h5xu.onrender.com/stalls/${id}/cancel`).then(fetchStalls)); };
-
-  if (loading) return <div>Loading...</div>;
-
   return (
     <div className="card" style={{ marginTop: '30px' }}>
       <div style={{ display: 'none' }}><Receipt ref={componentRef} data={printData} /></div>
