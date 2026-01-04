@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
-// รองรับรูปภาพขนาดใหญ่
+// รองรับการส่งรูปภาพขนาดใหญ่ (10MB)
 app.use(bodyParser.json({ limit: '10mb' })); 
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
@@ -16,10 +16,12 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// 🛠️ อัปเกรด Database อัตโนมัติ (สร้างตารางและช่องที่ขาด)
+// ==========================================
+// 🛠️ 0. เตรียม Database (สร้างตาราง/เพิ่มช่องให้อัตโนมัติ)
+// ==========================================
 const initDB = async () => {
   try {
-    // สร้างตาราง users ถ้ายังไม่มี
+    // 1. ตาราง Users
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -31,7 +33,7 @@ const initDB = async () => {
       );
     `);
     
-    // สร้างตาราง stalls ถ้ายังไม่มี
+    // 2. ตาราง Stalls (แผงค้า)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS stalls (
         id SERIAL PRIMARY KEY,
@@ -43,14 +45,25 @@ const initDB = async () => {
       );
     `);
 
-    // เพิ่มคอลัมน์ใหม่ๆ (ถ้ายังไม่มี)
-    await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS slip_image TEXT").catch(()=>{});
-    await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS doc_image TEXT").catch(()=>{});
-    await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_water INT DEFAULT 0").catch(()=>{});
-    await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_electric INT DEFAULT 0").catch(()=>{});
-    await pool.query("ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_total INT DEFAULT 0").catch(()=>{});
+    // 3. เพิ่มคอลัมน์ใหม่ๆ (เผื่อยังไม่มี)
+    const columns = [
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS slip_image TEXT",     // สลิปจอง
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS doc_image TEXT",      // รูปบัตร ปชช.
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_water INT DEFAULT 0",    // ค่าน้ำ
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_electric INT DEFAULT 0", // ค่าไฟ
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_total INT DEFAULT 0",    // ยอดรวม
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_slip_image TEXT", // สลิปจ่ายบิล
+        "ALTER TABLE stalls ADD COLUMN IF NOT EXISTS bill_status TEXT DEFAULT 'PAID'" // สถานะบิล (PAID, UNPAID, PENDING)
+    ];
+
+    for (let col of columns) {
+        await pool.query(col).catch(() => {});
+    }
+
+    // สร้าง Admin ถ้ายังไม่มี
+    await pool.query("INSERT INTO users (username, password, full_name, role) VALUES ('admin', 'admin1234', 'Super Admin', 'ADMIN') ON CONFLICT DO NOTHING");
     
-    console.log("Database initialized successfully");
+    console.log("Database & Admin initialized successfully");
   } catch (e) { 
     console.log("DB Init Error:", e.message); 
   }
@@ -89,11 +102,11 @@ app.post('/register', async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// 🆘 ทางลัด: สร้าง Admin (ถ้ายูสเซอร์ 'admin' ยังไม่มี)
+// ทางลัดสร้าง Admin (เผื่อฉุกเฉิน)
 app.get('/setup/admin', async (req, res) => {
     try {
         await pool.query("INSERT INTO users (username, password, full_name, role) VALUES ('admin', 'admin1234', 'Super Admin', 'ADMIN') ON CONFLICT DO NOTHING");
-        res.send("สร้าง Admin สำเร็จ (User: admin / Pass: admin1234)");
+        res.send("Admin Created: admin / admin1234");
     } catch (err) { res.send(err.message); }
 });
 
@@ -119,7 +132,7 @@ app.get('/admin/stats', async (req, res) => {
 });
 
 // ==========================================
-// 🛒 3. จัดการแผงค้า (Stalls)
+// 🛒 3. จัดการแผงค้า (Stalls Management)
 // ==========================================
 app.get('/stalls', async (req, res) => {
   try {
@@ -137,7 +150,7 @@ app.post('/stalls/add', async (req, res) => {
   const { code, zone_id, monthly_price } = req.body;
   try {
     await pool.query("INSERT INTO stalls (code, zone_id, status, monthly_price) VALUES ($1, $2, 'VACANT', $3)", [code, zone_id, monthly_price]);
-    res.json({ message: 'สำเร็จ' });
+    res.json({ message: 'เพิ่มแผงค้าสำเร็จ' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -148,14 +161,14 @@ app.delete('/stalls/:id', async (req, res) => {
 });
 
 // ==========================================
-// 📸 4. ระบบจอง (Booking)
+// 📸 4. ระบบจอง (Booking & Approval)
 // ==========================================
 app.post('/book', async (req, res) => {
   const { stall_id, user_id, stall_code, user_name, image, doc_image } = req.body; 
   const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
 
   try {
-    // อัปเดต DB
+    // อัปเดต DB: ใส่รูปสลิป + รูปเอกสาร + เปลี่ยนสถานะ PENDING
     await pool.query(
       "UPDATE stalls SET status = 'PENDING', tenant_id = $1, slip_image = $2, doc_image = $3 WHERE id = $4", 
       [user_id, image, doc_image, stall_id]
@@ -163,77 +176,124 @@ app.post('/book', async (req, res) => {
     
     // แจ้งเตือน Discord
     if (DISCORD_WEBHOOK_URL) {
-        const discordMessage = {
-            content: "📑 **มีรายการจองใหม่! (สลิป+เอกสาร)** @everyone",
+        axios.post(DISCORD_WEBHOOK_URL, {
+            content: "📑 **มีรายการจองใหม่!** @everyone",
             embeds: [{
                 title: `🏠 ขอเช่าแผง: ${stall_code}`,
-                description: "ลูกค้าส่งเอกสารครบแล้ว โปรดตรวจสอบ",
-                color: 16776960, 
-                fields: [
-                    { name: "👤 ลูกค้า", value: user_name, inline: true },
-                    { name: "💰 สถานะ", value: "รอตรวจสอบ", inline: true }
-                ]
+                description: "ลูกค้าแนบสลิปและเอกสารแล้ว",
+                color: 16776960, // สีเหลือง
+                fields: [{ name: "👤 ลูกค้า", value: user_name, inline: true }]
             }]
-        };
-        axios.post(DISCORD_WEBHOOK_URL, discordMessage).catch(e => console.error(e));
+        }).catch(e => console.error(e));
     }
-    res.json({ message: 'จองสำเร็จ' });
+    res.json({ message: 'จองสำเร็จ รอตรวจสอบ' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// อนุมัติ / ปฏิเสธ / คืนแผง
+// อนุมัติการจอง (Occupied)
 app.put('/stalls/:id/approve', async (req, res) => {
-  const { id } = req.params; try { await pool.query("UPDATE stalls SET status = 'OCCUPIED' WHERE id = $1", [id]); res.json({ message: 'อนุมัติสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
+  const { id } = req.params; 
+  try { 
+      await pool.query("UPDATE stalls SET status = 'OCCUPIED' WHERE id = $1", [id]); 
+      res.json({ message: 'อนุมัติสำเร็จ' }); 
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
+
+// ปฏิเสธการจอง (Clear Data)
 app.put('/stalls/:id/reject', async (req, res) => {
-  const { id } = req.params; try { await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL, doc_image = NULL WHERE id = $1", [id]); res.json({ message: 'ปฏิเสธสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
+  const { id } = req.params; 
+  try { 
+      await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL, doc_image = NULL WHERE id = $1", [id]); 
+      res.json({ message: 'ปฏิเสธสำเร็จ' }); 
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
+
+// ยกเลิก/คืนแผง (Clear All Data incl. Bills)
 app.put('/stalls/:id/cancel', async (req, res) => {
-  const { id } = req.params; try { await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL, doc_image = NULL, bill_total = 0 WHERE id = $1", [id]); res.json({ message: 'คืนแผงสำเร็จ' }); } catch (err) { res.status(500).json({ message: err.message }); }
+  const { id } = req.params; 
+  try { 
+      await pool.query("UPDATE stalls SET status = 'VACANT', tenant_id = NULL, slip_image = NULL, doc_image = NULL, bill_total = 0, bill_status='PAID' WHERE id = $1", [id]); 
+      res.json({ message: 'คืนแผงสำเร็จ' }); 
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // ==========================================
-// 🧾 5. ระบบบิล & แจ้งหนี้ (Billing)
+// 🧾 5. ระบบบิล & การชำระเงิน (Bill Payment System)
 // ==========================================
+
+// 5.1 Admin แจ้งหนี้ -> Status: UNPAID
 app.post('/notify/bill', async (req, res) => {
   const { stall_code, tenant_name, rent, water, electric, total } = req.body;
   const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
 
   try {
-    // 1. บันทึกหนี้ลง DB
+    // บันทึกหนี้ และตั้งสถานะเป็น UNPAID
     await pool.query(
-        "UPDATE stalls SET bill_water=$1, bill_electric=$2, bill_total=$3 WHERE code=$4",
+        "UPDATE stalls SET bill_water=$1, bill_electric=$2, bill_total=$3, bill_status='UNPAID', bill_slip_image=NULL WHERE code=$4",
         [water, electric, total, stall_code]
     );
 
-    // 2. ส่ง Discord
     if (DISCORD_WEBHOOK_URL) {
-        const discordMessage = {
+        axios.post(DISCORD_WEBHOOK_URL, {
             content: `📢 **บิลค่าเช่ามาแล้วครับ!** @everyone`,
             embeds: [{
                 title: `🧾 ใบแจ้งหนี้: แผง ${stall_code}`,
                 description: `ผู้เช่า: **${tenant_name}**`,
-                color: 3447003,
+                color: 15158332, // สีแดง
                 fields: [
-                    { name: "🏠 ค่าเช่า", value: `${parseInt(rent).toLocaleString()} B`, inline: true },
-                    { name: "💧 ค่าน้ำ", value: `${parseInt(water).toLocaleString()} B`, inline: true },
-                    { name: "⚡ ค่าไฟ", value: `${parseInt(electric).toLocaleString()} B`, inline: true },
-                    { name: "💰 ยอดรวม", value: `**${parseInt(total).toLocaleString()} บาท**`, inline: false }
+                    { name: "ยอดรวม", value: `**${parseInt(total).toLocaleString()} บาท**`, inline: true },
+                    { name: "สถานะ", value: "🔴 ยังไม่จ่าย (Unpaid)", inline: true }
                 ]
             }]
-        };
-        axios.post(DISCORD_WEBHOOK_URL, discordMessage).catch(e => console.error(e));
+        }).catch(e => console.error(e));
     }
     res.json({ message: 'ส่งบิลเรียบร้อย' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// User จ่ายบิล (เคลียร์ยอด)
+// 5.2 User แนบสลิปจ่ายบิล -> Status: PENDING
 app.post('/pay/bill', async (req, res) => {
-    const { stall_id } = req.body;
+    const { stall_id, stall_code, image } = req.body;
+    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457016855309979844/CdMR-Iz3X_xDh0PvdSJrfWRK7m2Nwz2hHvbX318nfrLYId2e1UJGx-fT0VW7BLI7FItg'; 
+
     try {
-        await pool.query("UPDATE stalls SET bill_water=0, bill_electric=0, bill_total=0 WHERE id=$1", [stall_id]);
-        res.json({ message: 'ชำระเงินเรียบร้อย' });
+        await pool.query(
+            "UPDATE stalls SET bill_status='PENDING', bill_slip_image=$1 WHERE id=$2",
+            [image, stall_id]
+        );
+
+        if (DISCORD_WEBHOOK_URL) {
+            axios.post(DISCORD_WEBHOOK_URL, {
+                content: `💸 **มีคนจ่ายบิลแล้วจ้า!**`,
+                embeds: [{
+                    title: `💰 แจ้งชำระเงิน: แผง ${stall_code}`,
+                    description: "ลูกค้าแนบสลิปมาแล้ว รีบไปตรวจด่วน!",
+                    color: 16776960, // สีเหลือง
+                }]
+            }).catch(e => console.error(e));
+        }
+        res.json({ message: 'ส่งสลิปเรียบร้อย รอตรวจสอบ' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// 5.3 Admin ยืนยันการจ่าย (Approve Payment) -> Status: PAID, ยอดหนี้ = 0
+app.put('/bill/:id/approve', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query(
+            "UPDATE stalls SET bill_water=0, bill_electric=0, bill_total=0, bill_status='PAID', bill_slip_image=NULL WHERE id=$1", 
+            [id]
+        );
+        res.json({ message: 'ยืนยันการชำระเงินเรียบร้อย' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// 5.4 Admin ปฏิเสธสลิป (Reject Payment) -> Status: UNPAID
+app.put('/bill/:id/reject', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query("UPDATE stalls SET bill_status='UNPAID', bill_slip_image=NULL WHERE id=$1", [id]);
+        res.json({ message: 'ปฏิเสธสลิปเรียบร้อย' });
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
