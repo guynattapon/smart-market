@@ -189,13 +189,27 @@ function StallTable() {
   };
 
   // 5. ดูประวัติการเงิน (Show History)
-  const handleShowHistory = () => {
+const handleShowHistory = () => {
     Swal.fire({ title: 'กำลังโหลดข้อมูล...', didOpen: () => Swal.showLoading() });
     
     axios.get('https://smart-market-h5xu.onrender.com/history')
       .then((res) => {
         const history = res.data;
         
+        // 1. สร้างฟังก์ชัน Global ชั่วคราวเพื่อให้ HTML เรียกใช้ได้
+        window.viewSlipHistory = (index) => {
+            const item = history[index];
+            Swal.fire({
+                title: 'หลักฐานการโอนเงิน',
+                text: `วันที่: ${new Date(item.paid_at).toLocaleString('th-TH')}`,
+                imageUrl: item.slip_image,
+                imageWidth: 400,
+                imageAlt: 'Slip Image',
+                confirmButtonText: 'ปิด'
+            });
+        };
+        
+        // 2. สร้างตาราง
         let tableHtml = `
           <div style="overflow-x: auto; max-height: 400px;">
             <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
@@ -214,7 +228,7 @@ function StallTable() {
         if (history.length === 0) {
             tableHtml += `<tr><td colspan="5" style="padding:20px;">ยังไม่มีประวัติการชำระเงิน</td></tr>`;
         } else {
-            history.forEach(item => {
+            history.forEach((item, index) => { // ส่ง index ไปด้วย
                 const date = new Date(item.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour:'2-digit', minute:'2-digit' });
                 tableHtml += `
                   <tr style="border-bottom: 1px solid #eee;">
@@ -223,7 +237,10 @@ function StallTable() {
                     <td style="padding:8px;">${item.tenant_name}</td>
                     <td style="padding:8px; color:#10b981; font-weight:bold;">${parseInt(item.amount).toLocaleString()}</td>
                     <td style="padding:8px;">
-                      <a href="${item.slip_image}" target="_blank" style="text-decoration:none;">📄 ดูรูป</a>
+                      <button onclick="window.viewSlipHistory(${index})" 
+                              style="background:#3b82f6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">
+                        📷 ดูรูป
+                      </button>
                     </td>
                   </tr>
                 `;
@@ -239,6 +256,7 @@ function StallTable() {
         });
       })
       .catch(err => Swal.fire('Error', err.message, 'error'));
+  };
   };
 
   // ลบแผง / คืนแผง
@@ -333,6 +351,4 @@ function StallTable() {
       </div>
     </div>
   );
-}
-
 export default StallTable;
