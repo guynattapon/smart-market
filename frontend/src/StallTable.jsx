@@ -47,7 +47,6 @@ function StallTable() {
     }
   };
 
-  // 1. เพิ่มแผงค้า
   const handleAddStall = () => {
     Swal.fire({
       title: '🛠️ เพิ่มแผงค้าใหม่',
@@ -79,7 +78,6 @@ function StallTable() {
     });
   };
 
-  // 2. ตรวจสลิปจอง (Booking Check: Slip + ID Card)
   const handleCheckSlip = (stall) => {
     Swal.fire({
       title: 'ตรวจสอบการจอง 🕵️',
@@ -112,7 +110,6 @@ function StallTable() {
     });
   };
 
-  // 3. ตรวจการจ่ายบิล (Bill Payment Check)
   const handleCheckBillPayment = (stall) => {
     Swal.fire({
       title: 'ตรวจสอบการจ่ายบิล 💰',
@@ -131,18 +128,15 @@ function StallTable() {
       denyButtonColor: '#ef4444',
     }).then((result) => {
       if (result.isConfirmed) {
-        // อนุมัติ -> เก็บประวัติ -> เคลียร์หนี้
         axios.put(`https://smart-market-h5xu.onrender.com/bill/${stall.id}/approve`)
           .then(() => { Swal.fire('เรียบร้อย', 'บันทึกประวัติและเคลียร์หนี้แล้ว', 'success'); fetchStalls(); });
       } else if (result.isDenied) {
-        // ปฏิเสธ -> ให้ส่งใหม่
         axios.put(`https://smart-market-h5xu.onrender.com/bill/${stall.id}/reject`)
           .then(() => { Swal.fire('ปฏิเสธแล้ว', 'แจ้งลูกค้าให้ส่งใหม่', 'info'); fetchStalls(); });
       }
     });
   };
 
-  // 4. ส่งบิล (Send Bill)
   const handleSendBill = (stall) => {
     Swal.fire({
       title: `🧾 แจ้งบิลแผง ${stall.code}`,
@@ -188,28 +182,25 @@ function StallTable() {
     });
   };
 
-  // 5. ดูประวัติการเงิน (Show History)
-const handleShowHistory = () => {
+  // 🔥 5. ดูประวัติการเงิน (ฉบับแก้: ใช้ Popup แทน Link เพื่อแก้ปัญหา Chrome Block)
+  const handleShowHistory = () => {
     Swal.fire({ title: 'กำลังโหลดข้อมูล...', didOpen: () => Swal.showLoading() });
     
     axios.get('https://smart-market-h5xu.onrender.com/history')
       .then((res) => {
         const history = res.data;
         
-        // 1. สร้างฟังก์ชัน Global ชั่วคราวเพื่อให้ HTML เรียกใช้ได้
-        window.viewSlipHistory = (index) => {
+        // ฟังก์ชันช่วยเปิดรูป (ใส่ใน window เพื่อให้ string html เรียกใช้ได้)
+        window.viewSlip = (index) => {
             const item = history[index];
             Swal.fire({
                 title: 'หลักฐานการโอนเงิน',
-                text: `วันที่: ${new Date(item.paid_at).toLocaleString('th-TH')}`,
-                imageUrl: item.slip_image,
-                imageWidth: 400,
-                imageAlt: 'Slip Image',
+                html: `<img src="${item.slip_image}" style="max-width: 100%; max-height: 400px; border-radius: 8px;">`,
+                showCloseButton: true,
                 confirmButtonText: 'ปิด'
             });
         };
-        
-        // 2. สร้างตาราง
+
         let tableHtml = `
           <div style="overflow-x: auto; max-height: 400px;">
             <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
@@ -228,8 +219,9 @@ const handleShowHistory = () => {
         if (history.length === 0) {
             tableHtml += `<tr><td colspan="5" style="padding:20px;">ยังไม่มีประวัติการชำระเงิน</td></tr>`;
         } else {
-            history.forEach((item, index) => { // ส่ง index ไปด้วย
+            history.forEach((item, index) => {
                 const date = new Date(item.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour:'2-digit', minute:'2-digit' });
+                // 👇 เปลี่ยนจาก <a> เป็น <button> เพื่อแก้ Error
                 tableHtml += `
                   <tr style="border-bottom: 1px solid #eee;">
                     <td style="padding:8px;">${date}</td>
@@ -237,8 +229,8 @@ const handleShowHistory = () => {
                     <td style="padding:8px;">${item.tenant_name}</td>
                     <td style="padding:8px; color:#10b981; font-weight:bold;">${parseInt(item.amount).toLocaleString()}</td>
                     <td style="padding:8px;">
-                      <button onclick="window.viewSlipHistory(${index})" 
-                              style="background:#3b82f6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">
+                      <button onclick="window.viewSlip(${index})" 
+                              style="background:#3b82f6; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">
                         📷 ดูรูป
                       </button>
                     </td>
@@ -257,9 +249,7 @@ const handleShowHistory = () => {
       })
       .catch(err => Swal.fire('Error', err.message, 'error'));
   };
-  };
 
-  // ลบแผง / คืนแผง
   const handleDeleteStall = (id) => {
     Swal.fire({ title: 'ลบแผง?', icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!' }).then((result) => {
       if (result.isConfirmed) axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`).then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
@@ -320,12 +310,12 @@ const handleShowHistory = () => {
                     {/* ปุ่มตรวจจองแผง */}
                     {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍 ตรวจจอง</button>}
 
-                    {/* ปุ่มแจ้งบิล (โชว์เมื่อยังไม่ส่งบิล หรือจ่ายครบแล้ว) */}
+                    {/* ปุ่มแจ้งบิล */}
                     {isOccupied && stall.bill_total === 0 && (
                         <button onClick={() => handleSendBill(stall)} className="btn-info btn-sm" title="ส่งบิล">🧾</button>
                     )}
 
-                    {/* ปุ่มตรวจการจ่ายบิล (โชว์เมื่อลูกค้าส่งสลิปบิลมาแล้ว) */}
+                    {/* ปุ่มตรวจการจ่ายบิล */}
                     {isBillPending && (
                         <button onClick={() => handleCheckBillPayment(stall)} 
                             className="btn-warning btn-sm" 
@@ -351,4 +341,6 @@ const handleShowHistory = () => {
       </div>
     </div>
   );
+}
+
 export default StallTable;
