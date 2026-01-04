@@ -47,6 +47,7 @@ function StallTable() {
     }
   };
 
+  // 1. เพิ่มแผงค้า
   const handleAddStall = () => {
     Swal.fire({
       title: '🛠️ เพิ่มแผงค้าใหม่',
@@ -78,7 +79,7 @@ function StallTable() {
     });
   };
 
-  // ตรวจสลิปจอง (Booking Check)
+  // 2. ตรวจสลิปจอง (Booking Check: Slip + ID Card)
   const handleCheckSlip = (stall) => {
     Swal.fire({
       title: 'ตรวจสอบการจอง 🕵️',
@@ -111,7 +112,7 @@ function StallTable() {
     });
   };
 
-  // 👇 ตรวจการจ่ายบิล (Bill Payment Check) - ฟังก์ชันนี้ต้องมี!
+  // 3. ตรวจการจ่ายบิล (Bill Payment Check)
   const handleCheckBillPayment = (stall) => {
     Swal.fire({
       title: 'ตรวจสอบการจ่ายบิล 💰',
@@ -130,16 +131,18 @@ function StallTable() {
       denyButtonColor: '#ef4444',
     }).then((result) => {
       if (result.isConfirmed) {
+        // อนุมัติ -> เก็บประวัติ -> เคลียร์หนี้
         axios.put(`https://smart-market-h5xu.onrender.com/bill/${stall.id}/approve`)
-          .then(() => { Swal.fire('เรียบร้อย', 'หนี้ถูกเคลียร์แล้ว', 'success'); fetchStalls(); });
+          .then(() => { Swal.fire('เรียบร้อย', 'บันทึกประวัติและเคลียร์หนี้แล้ว', 'success'); fetchStalls(); });
       } else if (result.isDenied) {
+        // ปฏิเสธ -> ให้ส่งใหม่
         axios.put(`https://smart-market-h5xu.onrender.com/bill/${stall.id}/reject`)
           .then(() => { Swal.fire('ปฏิเสธแล้ว', 'แจ้งลูกค้าให้ส่งใหม่', 'info'); fetchStalls(); });
       }
     });
   };
 
-  // ส่งบิล
+  // 4. ส่งบิล (Send Bill)
   const handleSendBill = (stall) => {
     Swal.fire({
       title: `🧾 แจ้งบิลแผง ${stall.code}`,
@@ -185,6 +188,60 @@ function StallTable() {
     });
   };
 
+  // 5. ดูประวัติการเงิน (Show History)
+  const handleShowHistory = () => {
+    Swal.fire({ title: 'กำลังโหลดข้อมูล...', didOpen: () => Swal.showLoading() });
+    
+    axios.get('https://smart-market-h5xu.onrender.com/history')
+      .then((res) => {
+        const history = res.data;
+        
+        let tableHtml = `
+          <div style="overflow-x: auto; max-height: 400px;">
+            <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
+              <thead style="position: sticky; top: 0; background: #3b82f6; color: white;">
+                <tr>
+                  <th style="padding:8px;">วันที่</th>
+                  <th style="padding:8px;">แผง</th>
+                  <th style="padding:8px;">ผู้จ่าย</th>
+                  <th style="padding:8px;">ยอดรวม</th>
+                  <th style="padding:8px;">สลิป</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        if (history.length === 0) {
+            tableHtml += `<tr><td colspan="5" style="padding:20px;">ยังไม่มีประวัติการชำระเงิน</td></tr>`;
+        } else {
+            history.forEach(item => {
+                const date = new Date(item.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour:'2-digit', minute:'2-digit' });
+                tableHtml += `
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding:8px;">${date}</td>
+                    <td style="padding:8px; font-weight:bold;">${item.stall_code}</td>
+                    <td style="padding:8px;">${item.tenant_name}</td>
+                    <td style="padding:8px; color:#10b981; font-weight:bold;">${parseInt(item.amount).toLocaleString()}</td>
+                    <td style="padding:8px;">
+                      <a href="${item.slip_image}" target="_blank" style="text-decoration:none;">📄 ดูรูป</a>
+                    </td>
+                  </tr>
+                `;
+            });
+        }
+        tableHtml += `</tbody></table></div>`;
+
+        Swal.fire({
+          title: '📜 ประวัติการรับเงิน',
+          html: tableHtml,
+          width: '800px',
+          confirmButtonText: 'ปิดหน้าต่าง'
+        });
+      })
+      .catch(err => Swal.fire('Error', err.message, 'error'));
+  };
+
+  // ลบแผง / คืนแผง
   const handleDeleteStall = (id) => {
     Swal.fire({ title: 'ลบแผง?', icon: 'error', showCancelButton: true, confirmButtonText: 'ลบเลย!' }).then((result) => {
       if (result.isConfirmed) axios.delete(`https://smart-market-h5xu.onrender.com/stalls/${id}`).then(() => { Swal.fire('ลบแล้ว!', '', 'success'); fetchStalls(); });
@@ -202,10 +259,17 @@ function StallTable() {
   return (
     <div className="card" style={{ marginTop: '30px' }}>
       <div style={{ display: 'none' }}><Receipt ref={componentRef} data={printData} /></div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <h2>📋 จัดการแผงค้า</h2>
-        <button onClick={handleAddStall} className="btn-success">+ เพิ่มแผงค้า</button>
+        
+        <div style={{ display:'flex', gap:'10px' }}>
+            <button onClick={handleShowHistory} className="btn-info" style={{backgroundColor:'#6366f1', color:'white', border:'none'}}>
+                📜 ประวัติการเงิน
+            </button>
+            <button onClick={handleAddStall} className="btn-success">+ เพิ่มแผงค้า</button>
+        </div>
       </div>
+
       <div style={{ overflowX: 'auto' }}>
         <table className="custom-table">
           <thead>
@@ -214,8 +278,8 @@ function StallTable() {
           <tbody>
             {stalls.map((stall) => {
               const isOccupied = stall.status === 'OCCUPIED';
-              const isPending = stall.status === 'PENDING'; // จองรออนุมัติ
-              const isBillPending = stall.bill_status === 'PENDING'; // จ่ายบิลรออนุมัติ
+              const isPending = stall.status === 'PENDING';
+              const isBillPending = stall.bill_status === 'PENDING';
 
               return (
               <tr key={stall.id}>
@@ -235,15 +299,15 @@ function StallTable() {
                 <td>
                   <div style={{ display: 'flex', gap: '5px' }}>
                     
-                    {/* 1. ปุ่มตรวจจองแผง (แรกเข้า) */}
+                    {/* ปุ่มตรวจจองแผง */}
                     {isPending && <button onClick={() => handleCheckSlip(stall)} className="btn-warning btn-sm">🔍 ตรวจจอง</button>}
 
-                    {/* 2. ปุ่มแจ้งบิล (โชว์เมื่อยังไม่ส่งบิล หรือจ่ายครบแล้ว) */}
+                    {/* ปุ่มแจ้งบิล (โชว์เมื่อยังไม่ส่งบิล หรือจ่ายครบแล้ว) */}
                     {isOccupied && stall.bill_total === 0 && (
                         <button onClick={() => handleSendBill(stall)} className="btn-info btn-sm" title="ส่งบิล">🧾</button>
                     )}
 
-                    {/* 3. 🔥 ปุ่มใหม่: ตรวจการจ่ายบิล (โชว์เมื่อลูกค้าส่งสลิปบิลมาแล้ว) */}
+                    {/* ปุ่มตรวจการจ่ายบิล (โชว์เมื่อลูกค้าส่งสลิปบิลมาแล้ว) */}
                     {isBillPending && (
                         <button onClick={() => handleCheckBillPayment(stall)} 
                             className="btn-warning btn-sm" 
