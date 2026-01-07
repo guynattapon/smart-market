@@ -419,4 +419,4 @@ function StallTable() {
   );
 }
 
-export default StallTable;
+export default StallTable;  
